@@ -25,9 +25,11 @@ trello-cli-python/
 │   ├── commands/            # Command modules (separated by concern)
 │   │   ├── __init__.py
 │   │   ├── board.py         # Board operations (list, create)
-│   │   ├── list.py          # List operations (show, create)
+│   │   ├── list.py          # List operations (show, create, archive)
 │   │   ├── card.py          # Card operations (CRUD, checklists, dates)
-│   │   └── label.py         # Label operations
+│   │   ├── label.py         # Label operations
+│   │   ├── help.py          # Help commands (text, JSON)
+│   │   └── discovery.py     # Discovery commands (overview, search, IDs)
 │   └── utils/               # Utility modules
 │       ├── __init__.py
 │       ├── formatters.py    # Output formatting (tables, card details)
@@ -56,25 +58,40 @@ trello-cli-python/
 
 ## Key Features
 
-### 1. Comprehensive Command Set
+### 1. Claude Code Integration (NEW in v2.0.0)
+
+- **🤖 Discovery Commands**: JSON output for AI consumption
+  - `help-json`: All commands with arguments and types
+  - `board-overview`: Complete board structure with card counts
+  - `board-ids`: Quick reference of all IDs in a board
+  - `search-cards`: Find cards across all lists with location info
+
+- **🎯 AI-Friendly Design**:
+  - Structured JSON output for programmatic access
+  - Contextual help reminders after each command
+  - Comprehensive documentation in CLAUDE.md
+  - .clauderc configuration for quick reference
+
+### 2. Comprehensive Command Set
 
 - **Boards**: List, create
-- **Lists**: Show, create
-- **Cards**: Create, read, update, move
-- **Labels**: Add with color validation
-- **Checklists**: Create, add items
+- **Lists**: Show, create, archive
+- **Cards**: Create, read, update, move, search
+- **Labels**: Add with color validation (10 colors)
+- **Checklists**: Create, add items (auto-create if missing)
 - **Dates**: Set due dates with smart parsing
 - **Comments**: Add comments to cards
 
-### 2. Developer-Friendly
+### 3. Developer-Friendly
 
 - ✅ Clear error messages with emoji indicators
 - ✅ Input validation (dates, colors, non-empty fields)
-- ✅ Formatted table output
+- ✅ Formatted table output (supports dicts and objects)
 - ✅ Secure config (600 permissions)
 - ✅ Singleton client (performance)
+- ✅ Help reminder after each command
 
-### 3. Automation-Ready
+### 4. Automation-Ready
 
 - ✅ Scriptable (all commands return proper exit codes)
 - ✅ CSV import example

@@ -8,8 +8,8 @@ def format_table(items, columns, widths=None):
     Format items as a table
 
     Args:
-        items: List of objects to display
-        columns: List of (header, attribute) tuples
+        items: List of objects or dicts to display
+        columns: List of (header, attribute/key) tuples or (header, callable) tuples
         widths: Optional dict of column widths
     """
     if not widths:
@@ -22,10 +22,21 @@ def format_table(items, columns, widths=None):
 
     # Print rows
     for item in items:
-        row = " ".join(
-            f"{str(getattr(item, col[1], '')):<{widths.get(col[0], 40)}}"
-            for col in columns
-        )
+        row_parts = []
+        for col in columns:
+            # Handle callable (lambda function)
+            if callable(col[1]):
+                value = str(col[1](item))
+            # Handle dict
+            elif isinstance(item, dict):
+                value = str(item.get(col[1], ''))
+            # Handle object attribute
+            else:
+                value = str(getattr(item, col[1], ''))
+
+            row_parts.append(f"{value:<{widths.get(col[0], 40)}}")
+
+        row = " ".join(row_parts)
         print(row)
 
 

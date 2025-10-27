@@ -32,3 +32,18 @@ def cmd_create_list(board_id, list_name):
     print(f"✅ List created: {new_list.name}")
     print(f"   ID: {new_list.id}")
     print(f"   Board: {board.name}")
+
+
+def cmd_archive_list(list_id):
+    """Archive a list (close it)"""
+    client = get_client()
+    trello_list = client.get_list(list_id)
+
+    list_name = trello_list.name
+
+    # Archive the list
+    trello_list.close()
+
+    print(f"✅ List archived: {list_name}")
+    print(f"   ID: {list_id}")
+    print(f"   Status: Closed")

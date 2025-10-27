@@ -1,0 +1,191 @@
+# Claude Code Configuration for Trello CLI v2.1
+
+This project provides a comprehensive CLI for managing Trello boards with advanced features for bulk operations, sprint planning, and query capabilities.
+
+## Important: Always Start Here
+
+**Before doing anything with Trello, run this command:**
+
+```bash
+trello help-json
+```
+
+This command returns a JSON object with ALL available commands, their arguments, and usage information.
+
+## Quick Discovery Commands
+
+1. **Get all boards:**
+   ```bash
+   trello boards
+   ```
+
+2. **Get board overview (structure + card counts):**
+   ```bash
+   trello board-overview <board_id>
+   ```
+
+3. **Get all IDs in a board (for quick reference):**
+   ```bash
+   trello board-ids <board_id>
+   ```
+
+4. **Search for cards across a board:**
+   ```bash
+   trello search-cards <board_id> "search query"
+   ```
+
+## Quick Workflow Commands (NEW!)
+
+Move cards through workflow stages quickly:
+
+```bash
+trello quick-start <card_id>    # Move to "In Progress" + add comment
+trello quick-test <card_id>     # Move to "Testing" + add comment
+trello quick-done <card_id>     # Move to "Done" + add comment
+```
+
+Show cards in a board:
+```bash
+trello my-cards <board_id>      # Show all assigned cards
+trello card-age <list_id>       # Show how long cards have been in list
+```
+
+## Sprint Planning Commands (NEW!)
+
+Manage sprints efficiently:
+
+```bash
+trello sprint-start <board_id>     # Interactive: select cards for sprint
+trello sprint-status <board_id>    # See sprint progress with visualization
+trello sprint-close <board_id>     # Close sprint, move unfinished cards
+trello sprint-velocity <board_id>  # Calculate team velocity
+```
+
+## Bulk Operations (NEW!)
+
+Process multiple cards at once:
+
+```bash
+# Move cards
+trello bulk-move-cards <source_list> <target_list> ["filter"]
+
+# Add labels to multiple cards (requires file with card IDs)
+trello bulk-add-label cards.txt "red" "Priority"
+
+# Set due dates (requires file with card IDs)
+trello bulk-set-due cards.txt "2025-12-01"
+
+# Archive cards with optional filter
+trello bulk-archive-cards <list_id> ["filter"]
+
+# Create multiple cards from CSV/JSON
+trello bulk-create-cards <list_id> cards.csv
+```
+
+## Board Standardization & Agile Conformity (NEW!)
+
+Ensure boards follow Agile/Scrum best practices:
+
+```bash
+# Show available templates (agile, kanban, basic)
+trello list-templates
+
+# Standardize board lists (dry-run to preview)
+trello standardize-lists <board_id> agile --dry-run
+trello standardize-lists <board_id> agile
+
+# Validate Agile/Scrum conformity
+trello scrum-check <board_id>
+
+# Migrate cards between boards
+trello migrate-cards <source_list_id> <target_board_id> ["target_list"]
+```
+
+## Advanced Query Commands (NEW!)
+
+Find and analyze cards:
+
+```bash
+# Find cards by label
+trello cards-by-label <board_id> "red" ["P0"]
+
+# Find cards due soon (default: 7 days)
+trello cards-due-soon <board_id> [days]
+
+# Find overdue cards
+trello cards-overdue <board_id>
+
+# Get list metrics (age, labels, due dates)
+trello list-metrics <list_id>
+
+# Board health check (stale cards, bottlenecks, overdue)
+trello board-health <board_id>
+```
+
+## Key Features for AI Assistants
+
+- **Discovery-first design:** Use `help-json` to understand all capabilities
+- **Structured output:** Tables and formatted output for easy parsing
+- **Search capabilities:** Find cards without knowing their list
+- **Complete CRUD operations:** Create, read, update, delete boards, lists, and cards
+- **Rich card features:** Labels, checklists, due dates, comments
+- **Bulk operations:** Process multiple cards efficiently
+- **Sprint planning:** Full sprint lifecycle management
+- **Advanced queries:** Filter and analyze cards by various criteria
+- **Quick workflows:** Shortcuts for common operations
+
+## Documentation
+
+- See `CLAUDE.md` for comprehensive integration guide
+- See `README.md` for installation and basic usage
+- All commands show help reminder after execution
+
+## Common Workflows
+
+### 1. Start Working on a Card
+```bash
+# Find the card
+trello search-cards <board_id> "feature name"
+
+# Quick start (moves to In Progress)
+trello quick-start <card_id>
+```
+
+### 2. Sprint Planning
+```bash
+# See board health
+trello board-health <board_id>
+
+# Start sprint (interactive selection)
+trello sprint-start <board_id>
+
+# Monitor sprint progress
+trello sprint-status <board_id>
+
+# Close sprint
+trello sprint-close <board_id>
+```
+
+### 3. Bulk Card Management
+```bash
+# Find overdue cards
+trello cards-overdue <board_id>
+
+# Create file with card IDs, then:
+trello bulk-set-due card_ids.txt "2025-12-15"
+trello bulk-add-label card_ids.txt "orange" "P1"
+```
+
+### 4. Board Cleanup
+```bash
+# Check board health
+trello board-health <board_id>
+
+# Archive old cards
+trello bulk-archive-cards <list_id> "old_feature"
+
+# Move stale cards
+trello bulk-move-cards <source_list> <backlog_list>
+```
+
+Every command execution ends with a reminder: "💡 Run 'trello help' to see all capabilities"

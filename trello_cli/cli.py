@@ -7,59 +7,95 @@ import sys
 from . import __version__
 from .config import configure_interactive
 from .commands import (
+    # Basic commands
     cmd_boards, cmd_create_board,
-    cmd_lists, cmd_create_list,
+    cmd_lists, cmd_create_list, cmd_archive_list,
     cmd_cards, cmd_add_card, cmd_show_card,
     cmd_update_card, cmd_move_card,
     cmd_add_checklist, cmd_add_checkitem,
     cmd_set_due, cmd_add_comment,
-    cmd_add_label
+    cmd_add_label,
+    # Help & Discovery
+    cmd_help, cmd_help_json,
+    cmd_board_overview, cmd_board_ids, cmd_search_cards,
+    # Bulk operations
+    cmd_bulk_move_cards, cmd_bulk_add_label, cmd_bulk_set_due,
+    cmd_bulk_archive_cards, cmd_bulk_create_cards,
+    # Quick commands
+    cmd_quick_start, cmd_quick_test, cmd_quick_done,
+    cmd_my_cards, cmd_card_age,
+    # Sprint planning
+    cmd_sprint_start, cmd_sprint_status, cmd_sprint_close, cmd_sprint_velocity,
+    # Advanced queries
+    cmd_cards_by_label, cmd_cards_due_soon, cmd_cards_overdue,
+    cmd_list_metrics, cmd_board_health,
+    # Board standardization
+    cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates
 )
 
 HELP_TEXT = """
 Trello CLI v{version} - Official Python command-line interface for Trello
 
-Usage:
-  trello <command> [arguments]
+Usage: trello <command> [arguments]
 
-Configuration:
+HELP & CONFIGURATION:
   config                      Configure API credentials
+  help                        Show this help message
+  help-json                   Get all commands in JSON format (for Claude Code)
 
-Board Commands:
+DISCOVERY COMMANDS (for exploration):
+  board-overview <board_id>   Complete board structure with card counts
+  board-ids <board_id>        Quick reference of all IDs in a board
+  search-cards <board_id> "query"   Search cards across all lists
+
+QUICK COMMANDS (shortcuts):
+  quick-start <card_id>       Move to "In Progress" + add comment
+  quick-test <card_id>        Move to "Testing" + add comment
+  quick-done <card_id>        Move to "Done" + add comment
+  my-cards <board_id>         Show all your assigned cards
+  card-age <list_id>          Show how long cards have been in list
+
+SPRINT PLANNING:
+  sprint-start <board_id>     Start sprint (move Ready → Sprint)
+  sprint-status <board_id>    Show current sprint status
+  sprint-close <board_id>     Close sprint and move unfinished cards
+  sprint-velocity <board_id>  Calculate sprint velocity
+
+BULK OPERATIONS:
+  bulk-move-cards <source_list> <target_list> ["filter"]
+  bulk-add-label <file> <color> ["name"]
+  bulk-set-due <file> <date>
+  bulk-archive-cards <list_id> ["filter"]
+  bulk-create-cards <list_id> <csv/json_file>
+
+ADVANCED QUERIES:
+  cards-by-label <board_id> <color> ["name"]
+  cards-due-soon <board_id> [days]
+  cards-overdue <board_id>
+  list-metrics <list_id>
+  board-health <board_id>
+
+BOARD STANDARDIZATION (Agile/Scrum):
+  list-templates              Show available board templates
+  standardize-lists <board_id> <template> [--dry-run]
+  scrum-check <board_id>      Validate Agile/Scrum conformity
+  migrate-cards <list_id> <target_board_id> ["target_list"]
+
+BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
-  create-board "name"         Create a new board
+  lists <board_id>            List all lists
+  cards <list_id>             List cards in list
+  add-card <list_id> "title" ["desc"]
+  show-card <card_id>
+  update-card <card_id> "desc"
+  move-card <card_id> <list_id>
+  add-label <card_id> "color" ["name"]
+  add-checklist <card_id> "name"
+  set-due <card_id> "YYYY-MM-DD"
+  add-comment <card_id> "text"
 
-List Commands:
-  lists <board_id>            List all lists in a board
-  create-list <board_id> "name"   Create a new list
-
-Card Commands:
-  cards <list_id>             List all cards in a list
-  add-card <list_id> "title" ["description"]   Add a new card
-  show-card <card_id>         Show card details
-  update-card <card_id> "description"   Update card description
-  move-card <card_id> <list_id>   Move card to another list
-
-Label Commands:
-  add-label <card_id> "color" "name"   Add label to card
-    Valid colors: yellow, purple, blue, red, green, orange, black, sky, pink, lime
-
-Checklist Commands:
-  add-checklist <card_id> "name"   Add checklist to card
-  add-checkitem <card_id> "checklist" "item"   Add item to checklist
-
-Date & Comment Commands:
-  set-due <card_id> "YYYY-MM-DD"   Set due date
-  add-comment <card_id> "comment"   Add comment to card
-
-Examples:
-  trello boards
-  trello lists 68fcf05e481843db13204397
-  trello add-card 68fcff46fa7dbc9cc069eaef "PF-FEAT-001: New Feature" "Description here"
-  trello add-label 68fd24640bf4 "red" "P0"
-  trello set-due 68fd24640bf4 "2025-11-01"
-
-For more information, see README.md
+For detailed help, run: trello help-json
+For more information, see: README.md and CLAUDE.md
 """.format(version=__version__)
 
 
@@ -74,6 +110,30 @@ def main():
     try:
         if command == 'config':
             configure_interactive()
+
+        elif command in ['-h', '--help', 'help']:
+            cmd_help()
+
+        elif command == 'help-json':
+            cmd_help_json()
+
+        elif command == 'board-overview':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello board-overview <board_id>")
+                sys.exit(1)
+            cmd_board_overview(sys.argv[2])
+
+        elif command == 'board-ids':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello board-ids <board_id>")
+                sys.exit(1)
+            cmd_board_ids(sys.argv[2])
+
+        elif command == 'search-cards':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello search-cards <board_id> \"query\"")
+                sys.exit(1)
+            cmd_search_cards(sys.argv[2], sys.argv[3])
 
         elif command == 'boards':
             cmd_boards()
@@ -95,6 +155,12 @@ def main():
                 print("❌ Usage: trello create-list <board_id> \"name\"")
                 sys.exit(1)
             cmd_create_list(sys.argv[2], sys.argv[3])
+
+        elif command == 'archive-list':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello archive-list <list_id>")
+                sys.exit(1)
+            cmd_archive_list(sys.argv[2])
 
         elif command == 'cards':
             if len(sys.argv) < 3:
@@ -158,8 +224,158 @@ def main():
                 sys.exit(1)
             cmd_add_comment(sys.argv[2], sys.argv[3])
 
-        elif command in ['-h', '--help', 'help']:
-            print(HELP_TEXT)
+        # Quick Commands
+        elif command == 'quick-start':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello quick-start <card_id> [\"comment\"]")
+                sys.exit(1)
+            comment = sys.argv[3] if len(sys.argv) > 3 else "Started working on this"
+            cmd_quick_start(sys.argv[2], comment)
+
+        elif command == 'quick-test':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello quick-test <card_id> [\"comment\"]")
+                sys.exit(1)
+            comment = sys.argv[3] if len(sys.argv) > 3 else "Ready for testing"
+            cmd_quick_test(sys.argv[2], comment)
+
+        elif command == 'quick-done':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello quick-done <card_id> [\"comment\"]")
+                sys.exit(1)
+            comment = sys.argv[3] if len(sys.argv) > 3 else "Completed and verified"
+            cmd_quick_done(sys.argv[2], comment)
+
+        elif command == 'my-cards':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello my-cards <board_id> [\"member_name\"]")
+                sys.exit(1)
+            member_name = sys.argv[3] if len(sys.argv) > 3 else ""
+            cmd_my_cards(sys.argv[2], member_name)
+
+        elif command == 'card-age':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello card-age <list_id>")
+                sys.exit(1)
+            cmd_card_age(sys.argv[2])
+
+        # Sprint Planning Commands
+        elif command == 'sprint-start':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello sprint-start <board_id>")
+                sys.exit(1)
+            cmd_sprint_start(sys.argv[2])
+
+        elif command == 'sprint-status':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello sprint-status <board_id>")
+                sys.exit(1)
+            cmd_sprint_status(sys.argv[2])
+
+        elif command == 'sprint-close':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello sprint-close <board_id>")
+                sys.exit(1)
+            cmd_sprint_close(sys.argv[2])
+
+        elif command == 'sprint-velocity':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello sprint-velocity <board_id> [num_sprints]")
+                sys.exit(1)
+            num_sprints = int(sys.argv[3]) if len(sys.argv) > 3 else 3
+            cmd_sprint_velocity(sys.argv[2], num_sprints)
+
+        # Bulk Operations
+        elif command == 'bulk-move-cards':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello bulk-move-cards <source_list_id> <target_list_id> [\"filter\"]")
+                sys.exit(1)
+            filter_query = sys.argv[4] if len(sys.argv) > 4 else ""
+            cmd_bulk_move_cards(sys.argv[2], sys.argv[3], filter_query)
+
+        elif command == 'bulk-add-label':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello bulk-add-label <card_ids_file> <color> [\"name\"]")
+                sys.exit(1)
+            label_name = sys.argv[4] if len(sys.argv) > 4 else ""
+            cmd_bulk_add_label(sys.argv[2], sys.argv[3], label_name)
+
+        elif command == 'bulk-set-due':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello bulk-set-due <card_ids_file> <date>")
+                sys.exit(1)
+            cmd_bulk_set_due(sys.argv[2], sys.argv[3])
+
+        elif command == 'bulk-archive-cards':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello bulk-archive-cards <list_id> [\"filter\"]")
+                sys.exit(1)
+            filter_query = sys.argv[3] if len(sys.argv) > 3 else ""
+            cmd_bulk_archive_cards(sys.argv[2], filter_query)
+
+        elif command == 'bulk-create-cards':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello bulk-create-cards <list_id> <csv/json_file>")
+                sys.exit(1)
+            cmd_bulk_create_cards(sys.argv[2], sys.argv[3])
+
+        # Advanced Query Commands
+        elif command == 'cards-by-label':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello cards-by-label <board_id> <color> [\"name\"]")
+                sys.exit(1)
+            label_name = sys.argv[4] if len(sys.argv) > 4 else ""
+            cmd_cards_by_label(sys.argv[2], sys.argv[3], label_name)
+
+        elif command == 'cards-due-soon':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello cards-due-soon <board_id> [days]")
+                sys.exit(1)
+            days = int(sys.argv[3]) if len(sys.argv) > 3 else 7
+            cmd_cards_due_soon(sys.argv[2], days)
+
+        elif command == 'cards-overdue':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello cards-overdue <board_id>")
+                sys.exit(1)
+            cmd_cards_overdue(sys.argv[2])
+
+        elif command == 'list-metrics':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello list-metrics <list_id>")
+                sys.exit(1)
+            cmd_list_metrics(sys.argv[2])
+
+        elif command == 'board-health':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello board-health <board_id>")
+                sys.exit(1)
+            cmd_board_health(sys.argv[2])
+
+        # Board Standardization Commands
+        elif command == 'list-templates':
+            cmd_list_templates()
+
+        elif command == 'standardize-lists':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello standardize-lists <board_id> [template] [--dry-run]")
+                sys.exit(1)
+            template = sys.argv[3] if len(sys.argv) > 3 else "agile"
+            dry_run = "--dry-run" in sys.argv or "-n" in sys.argv
+            cmd_standardize_lists(sys.argv[2], template, dry_run)
+
+        elif command == 'scrum-check':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello scrum-check <board_id>")
+                sys.exit(1)
+            cmd_scrum_check(sys.argv[2])
+
+        elif command == 'migrate-cards':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello migrate-cards <source_list_id> <target_board_id> [\"target_list\"]")
+                sys.exit(1)
+            target_list = sys.argv[4] if len(sys.argv) > 4 else ""
+            cmd_migrate_cards(sys.argv[2], sys.argv[3], target_list)
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")
@@ -169,6 +385,11 @@ def main():
             print()
             print(HELP_TEXT)
             sys.exit(1)
+
+        # Show help reminder after successful command execution
+        # (only for non-help, non-version commands)
+        if command not in ['help', '-h', '--help', 'help-json', 'version', '-v', '--version']:
+            print("\n💡 Run 'trello help' to see all capabilities")
 
     except KeyboardInterrupt:
         print("\n⚠️  Operation cancelled by user")
