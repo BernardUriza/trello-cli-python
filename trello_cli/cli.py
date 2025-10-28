@@ -13,7 +13,7 @@ from .commands import (
     cmd_cards, cmd_add_card, cmd_show_card,
     cmd_update_card, cmd_move_card,
     cmd_add_checklist, cmd_add_checkitem,
-    cmd_set_due, cmd_add_comment,
+    cmd_set_due, cmd_add_comment, cmd_delete_card,
     cmd_add_label,
     # Help & Discovery
     cmd_help, cmd_help_json,
@@ -30,7 +30,9 @@ from .commands import (
     cmd_cards_by_label, cmd_cards_due_soon, cmd_cards_overdue,
     cmd_list_metrics, cmd_board_health,
     # Board standardization
-    cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates
+    cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates,
+    # Board migration
+    cmd_migrate_board, cmd_archive_board
 )
 
 HELP_TEXT = """
@@ -89,6 +91,7 @@ BASIC BOARD/LIST/CARD COMMANDS:
   show-card <card_id>
   update-card <card_id> "desc"
   move-card <card_id> <list_id>
+  delete-card <card_id>       Delete a card permanently
   add-label <card_id> "color" ["name"]
   add-checklist <card_id> "name"
   set-due <card_id> "YYYY-MM-DD"
@@ -223,6 +226,12 @@ def main():
                 print("❌ Usage: trello add-comment <card_id> \"comment\"")
                 sys.exit(1)
             cmd_add_comment(sys.argv[2], sys.argv[3])
+
+        elif command == 'delete-card':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello delete-card <card_id>")
+                sys.exit(1)
+            cmd_delete_card(sys.argv[2])
 
         # Quick Commands
         elif command == 'quick-start':
@@ -376,6 +385,19 @@ def main():
                 sys.exit(1)
             target_list = sys.argv[4] if len(sys.argv) > 4 else ""
             cmd_migrate_cards(sys.argv[2], sys.argv[3], target_list)
+
+        elif command == 'migrate-board':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello migrate-board <source_board_id> <target_board_id> [--dry-run]")
+                sys.exit(1)
+            dry_run = '--dry-run' in sys.argv
+            cmd_migrate_board(sys.argv[2], sys.argv[3], dry_run)
+
+        elif command == 'archive-board':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello archive-board <board_id>")
+                sys.exit(1)
+            cmd_archive_board(sys.argv[2])
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")

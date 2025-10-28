@@ -8,7 +8,7 @@ from .card import (
     cmd_cards, cmd_add_card, cmd_show_card,
     cmd_update_card, cmd_move_card,
     cmd_add_checklist, cmd_add_checkitem,
-    cmd_set_due, cmd_add_comment
+    cmd_set_due, cmd_add_comment, cmd_delete_card
 )
 from .label import cmd_add_label
 from .help import cmd_help, cmd_help_json
@@ -31,6 +31,7 @@ from .query import (
 from .standardize import (
     cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates
 )
+from .migrate import cmd_migrate_board, cmd_archive_board
 
 __all__ = [
     # Basic commands
@@ -39,7 +40,7 @@ __all__ = [
     'cmd_cards', 'cmd_add_card', 'cmd_show_card',
     'cmd_update_card', 'cmd_move_card',
     'cmd_add_checklist', 'cmd_add_checkitem',
-    'cmd_set_due', 'cmd_add_comment',
+    'cmd_set_due', 'cmd_add_comment', 'cmd_delete_card',
     'cmd_add_label',
     # Help & Discovery
     'cmd_help', 'cmd_help_json',
@@ -56,5 +57,7 @@ __all__ = [
     'cmd_cards_by_label', 'cmd_cards_due_soon', 'cmd_cards_overdue',
     'cmd_list_metrics', 'cmd_board_health',
     # Board standardization
-    'cmd_standardize_lists', 'cmd_scrum_check', 'cmd_migrate_cards', 'cmd_list_templates'
+    'cmd_standardize_lists', 'cmd_scrum_check', 'cmd_migrate_cards', 'cmd_list_templates',
+    # Board migration
+    'cmd_migrate_board', 'cmd_archive_board'
 ]

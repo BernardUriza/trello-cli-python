@@ -164,6 +164,13 @@ def cmd_help_json():
                     {"name": "card_id", "type": "string", "required": True},
                     {"name": "comment", "type": "string", "required": True}
                 ]
+            },
+            "delete-card": {
+                "description": "Delete a card permanently",
+                "usage": "trello delete-card <card_id>",
+                "args": [
+                    {"name": "card_id", "type": "string", "required": True}
+                ]
             }
         },
         "usage_notes": [
@@ -203,6 +210,7 @@ CARD COMMANDS:
   show-card <card_id>               Show card details
   update-card <card_id> "desc"      Update card description
   move-card <card_id> <list_id>     Move card to another list
+  delete-card <card_id>             Delete a card permanently
 
 CARD ENHANCEMENT COMMANDS:
   add-label <card_id> "color" ["name"]   Add label to card

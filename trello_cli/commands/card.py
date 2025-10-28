@@ -107,3 +107,13 @@ def cmd_add_comment(card_id, comment):
     card.comment(comment)
 
     print(f"✅ Added comment to card {card.name}")
+
+
+def cmd_delete_card(card_id):
+    """Delete a card permanently"""
+    client = get_client()
+    card = client.get_card(card_id)
+    card_name = card.name
+
+    card.delete()
+    print(f"✅ Card deleted: {card_name}")
