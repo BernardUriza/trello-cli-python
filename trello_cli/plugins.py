@@ -11,7 +11,7 @@ from typing import Dict, List, Optional, Tuple
 
 
 PLUGIN_DIR = Path.home() / '.trellocli' / 'plugins'
-CONFIG_FILE = Path.home() / '.trello_cli_config.json'
+CONFIG_FILE = Path.home() / '.trello_config.json'
 
 
 def ensure_plugin_dir():
