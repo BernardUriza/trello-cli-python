@@ -203,6 +203,21 @@ def cmd_help_json():
                     {"name": "board_id", "type": "string", "required": True},
                     {"name": "sprint_label", "type": "string", "required": False, "description": "Filter by specific sprint label (e.g., 'Sprint 1'). Auto-detects if not provided."}
                 ]
+            },
+            "rename-card": {
+                "description": "Rename a card (update title/name)",
+                "usage": "trello rename-card <card_id> \"new_title\"",
+                "args": [
+                    {"name": "card_id", "type": "string", "required": True},
+                    {"name": "new_title", "type": "string", "required": True}
+                ]
+            },
+            "label-audit": {
+                "description": "Label audit: detect duplicates, similar names, unused labels, and naming inconsistencies",
+                "usage": "trello label-audit <board_id>",
+                "args": [
+                    {"name": "board_id", "type": "string", "required": True}
+                ]
             }
         },
         "usage_notes": [
@@ -241,6 +256,7 @@ CARD COMMANDS:
   add-card <list_id> "title" ["desc"]   Add a new card
   show-card <card_id>               Show card details
   update-card <card_id> "desc"      Update card description
+  rename-card <card_id> "title"     Rename card (update title)
   move-card <card_id> <list_id>     Move card to another list
   delete-card <card_id>             Delete a card permanently
 
@@ -256,6 +272,7 @@ AUDIT & ANALYSIS COMMANDS:
   list-audit <list_id> ["pattern"]       Detailed list audit
   list-snapshot <list_id> ["file.json"]  Export list to JSON
   sprint-audit <board_id> ["sprint"]     Sprint audit (dates, overdue)
+  label-audit <board_id>                 Label audit (duplicates, unused)
 
 CONFIGURATION:
   config                            Configure API credentials

@@ -11,7 +11,7 @@ from .commands import (
     cmd_boards, cmd_create_board,
     cmd_lists, cmd_create_list, cmd_archive_list,
     cmd_cards, cmd_add_card, cmd_show_card,
-    cmd_update_card, cmd_move_card,
+    cmd_update_card, cmd_move_card, cmd_rename_card,
     cmd_add_checklist, cmd_add_checkitem,
     cmd_set_due, cmd_add_comment, cmd_delete_card,
     cmd_add_label,
@@ -34,7 +34,7 @@ from .commands import (
     # Board migration
     cmd_migrate_board, cmd_archive_board,
     # Audit commands
-    cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit
+    cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit, cmd_label_audit
 )
 
 HELP_TEXT = """
@@ -90,6 +90,7 @@ AUDIT & ANALYSIS:
   list-audit <list_id> ["pattern"]      Detailed list audit
   list-snapshot <list_id> ["file.json"] Export list to JSON snapshot
   sprint-audit <board_id> ["sprint"]    Sprint-specific audit (dates, overdue)
+  label-audit <board_id>                Label audit (duplicates, unused, typos)
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -98,8 +99,9 @@ BASIC BOARD/LIST/CARD COMMANDS:
   add-card <list_id> "title" ["desc"]
   show-card <card_id>
   update-card <card_id> "desc"
+  rename-card <card_id> "title"         Rename card (update title)
   move-card <card_id> <list_id>
-  delete-card <card_id>       Delete a card permanently
+  delete-card <card_id>                 Delete a card permanently
   add-label <card_id> "color" ["name"]
   add-checklist <card_id> "name"
   set-due <card_id> "YYYY-MM-DD"
@@ -197,6 +199,12 @@ def main():
                 print("❌ Usage: trello update-card <card_id> \"description\"")
                 sys.exit(1)
             cmd_update_card(sys.argv[2], sys.argv[3])
+
+        elif command == 'rename-card':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello rename-card <card_id> \"new_title\"")
+                sys.exit(1)
+            cmd_rename_card(sys.argv[2], sys.argv[3])
 
         elif command == 'move-card':
             if len(sys.argv) < 4:
@@ -435,6 +443,12 @@ def main():
                 sys.exit(1)
             sprint_label = sys.argv[3] if len(sys.argv) > 3 else None
             cmd_sprint_audit(sys.argv[2], sprint_label)
+
+        elif command == 'label-audit':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello label-audit <board_id>")
+                sys.exit(1)
+            cmd_label_audit(sys.argv[2])
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")

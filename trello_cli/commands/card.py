@@ -117,3 +117,16 @@ def cmd_delete_card(card_id):
 
     card.delete()
     print(f"✅ Card deleted: {card_name}")
+
+
+def cmd_rename_card(card_id, new_name):
+    """Rename a card (update title)"""
+    client = get_client()
+    card = client.get_card(card_id)
+    old_name = card.name
+
+    card.set_name(new_name)
+    print(f"✅ Card renamed:")
+    print(f"   Old: {old_name}")
+    print(f"   New: {new_name}")
+    print(f"   ID:  {card_id}")

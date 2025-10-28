@@ -770,3 +770,240 @@ def cmd_sprint_audit(board_id, sprint_label=None):
     print(f"Critical Issues: {issues}")
     print(f"Overdue Cards: {len(overdue_sprint_cards)}")
     print(f"{'='*80}\n")
+
+
+def cmd_label_audit(board_id):
+    """
+    Label audit:
+    - Detect duplicate labels (same name, different color)
+    - Detect similar labels (typos, case differences)
+    - Unused labels (defined but not used on any card)
+    - Label usage statistics
+    - Naming inconsistencies
+    """
+    client = get_client()
+    board = client.get_board(board_id)
+
+    # Get all board labels
+    board_labels = board.get_labels()
+
+    # Get all lists and cards
+    lists = board.list_lists()
+
+    print(f"\n{'='*80}")
+    print(f"LABEL AUDIT REPORT - {board.name}")
+    print(f"Board ID: {board_id}")
+    print(f"{'='*80}\n")
+
+    # Track label usage
+    label_usage = defaultdict(int)
+    label_details = {}  # id -> {name, color, count}
+
+    # Initialize all board labels
+    for label in board_labels:
+        label_id = label.id
+        label_name = label.name or f"[{label.color}]"
+        label_details[label_id] = {
+            'id': label_id,
+            'name': label.name,
+            'color': label.color,
+            'count': 0
+        }
+
+    # Count label usage
+    total_cards = 0
+    for lst in lists:
+        if lst.closed:
+            continue
+
+        cards = lst.list_cards()
+        total_cards += len(cards)
+
+        for card in cards:
+            for label in card.labels:
+                if label.id in label_details:
+                    label_details[label.id]['count'] += 1
+                    label_usage[label.id] += 1
+
+    # Analysis
+    print(f"📊 LABEL SUMMARY:")
+    print(f"   Total labels defined: {len(board_labels)}")
+    print(f"   Total cards: {total_cards}")
+    print()
+
+    # Group labels by name (case-insensitive)
+    labels_by_name = defaultdict(list)
+    for label in board_labels:
+        name_key = (label.name or "").lower().strip()
+        if name_key:
+            labels_by_name[name_key].append(label)
+
+    # Detect issues
+    print(f"{'='*80}")
+    print(f"LABEL AUDIT FINDINGS:")
+    print(f"{'='*80}\n")
+
+    issues = 0
+
+    # 1. Duplicate names (same name, different colors)
+    duplicates = {name: labels for name, labels in labels_by_name.items() if len(labels) > 1}
+
+    if duplicates:
+        issues += 1
+        print(f"⚠️  DUPLICATE LABEL NAMES: {len(duplicates)} name(s) with multiple colors")
+        print(f"   Same name but different colors - may cause confusion\n")
+
+        for name, labels in sorted(duplicates.items()):
+            print(f"   📛 \"{name}\" ({len(labels)} versions):")
+            for label in labels:
+                usage = label_details.get(label.id, {}).get('count', 0)
+                print(f"      • Color: {label.color:12} | Used: {usage:3} times | ID: {label.id}")
+            print()
+    else:
+        print(f"✅ No duplicate label names\n")
+
+    # 2. Similar labels (potential typos)
+    similar_labels = []
+    label_names = [(label.name.lower().strip(), label) for label in board_labels if label.name]
+
+    for i, (name1, label1) in enumerate(label_names):
+        for name2, label2 in label_names[i+1:]:
+            # Check for very similar names (edit distance, common prefixes, etc.)
+            if name1 != name2:
+                # Simple similarity: same words in different order, or one contains the other
+                words1 = set(name1.split())
+                words2 = set(name2.split())
+
+                # Check if one contains the other or significant overlap
+                if (words1.issubset(words2) or words2.issubset(words1) or
+                    len(words1.intersection(words2)) >= min(len(words1), len(words2)) * 0.7):
+                    similar_labels.append((label1, label2))
+
+    if similar_labels:
+        issues += 1
+        print(f"⚠️  SIMILAR LABELS: {len(similar_labels)} pair(s) detected")
+        print(f"   These labels have similar names - possible typos or redundancy\n")
+
+        for label1, label2 in similar_labels[:10]:
+            usage1 = label_details.get(label1.id, {}).get('count', 0)
+            usage2 = label_details.get(label2.id, {}).get('count', 0)
+            print(f"   📛 Similar pair:")
+            print(f"      • \"{label1.name}\" ({label1.color}) - Used {usage1} times")
+            print(f"      • \"{label2.name}\" ({label2.color}) - Used {usage2} times")
+            print()
+
+        if len(similar_labels) > 10:
+            print(f"   ... and {len(similar_labels) - 10} more pairs\n")
+    else:
+        print(f"✅ No similar label names detected\n")
+
+    # 3. Unused labels
+    unused_labels = [label for label in board_labels
+                    if label_details.get(label.id, {}).get('count', 0) == 0]
+
+    if unused_labels:
+        issues += 1
+        print(f"⚠️  UNUSED LABELS: {len(unused_labels)} label(s) not used on any card")
+        print(f"   Consider removing these to reduce clutter\n")
+
+        for label in unused_labels[:15]:
+            name = label.name or f"[unnamed {label.color}]"
+            print(f"   • {name:30} │ Color: {label.color:10} │ ID: {label.id}")
+
+        if len(unused_labels) > 15:
+            print(f"   ... and {len(unused_labels) - 15} more\n")
+    else:
+        print(f"✅ All labels are in use\n")
+
+    # 4. Unnamed labels
+    unnamed_labels = [label for label in board_labels if not label.name or label.name.strip() == ""]
+
+    if unnamed_labels:
+        issues += 1
+        print(f"⚠️  UNNAMED LABELS: {len(unnamed_labels)} label(s) without names")
+        print(f"   Labels should have descriptive names\n")
+
+        for label in unnamed_labels:
+            usage = label_details.get(label.id, {}).get('count', 0)
+            print(f"   • Color: {label.color:12} | Used: {usage:3} times | ID: {label.id}")
+        print()
+    else:
+        print(f"✅ All labels have names\n")
+
+    # Label usage statistics
+    print(f"{'='*80}")
+    print(f"LABEL USAGE STATISTICS:")
+    print(f"{'='*80}\n")
+
+    # Sort by usage
+    labels_sorted = sorted(label_details.values(), key=lambda x: x['count'], reverse=True)
+
+    print(f"Top 20 Most Used Labels:\n")
+    for i, label in enumerate(labels_sorted[:20], 1):
+        name = label['name'] or f"[unnamed {label['color']}]"
+        count = label['count']
+        color = label['color']
+
+        # Usage bar
+        max_count = labels_sorted[0]['count'] if labels_sorted else 1
+        bar_length = int((count / max_count) * 40) if max_count > 0 else 0
+        bar = '█' * bar_length
+
+        print(f"{i:2}. {name:30} │ {color:10} │ {count:4} │ {bar}")
+
+    print()
+
+    # Label distribution by color
+    color_counts = Counter(label['color'] for label in label_details.values())
+    print(f"Label Distribution by Color:\n")
+    for color, count in sorted(color_counts.items()):
+        bar = '█' * min(30, count)
+        print(f"   {color:12} │ {count:3} label(s) │ {bar}")
+
+    print()
+
+    # Recommendations
+    print(f"{'='*80}")
+    print(f"RECOMMENDATIONS:")
+    print(f"{'='*80}\n")
+
+    if duplicates:
+        print(f"🔧 Consolidate duplicate labels:")
+        print(f"   Choose one color per label name and migrate cards to it\n")
+
+    if unused_labels:
+        print(f"🗑️  Delete unused labels to reduce clutter:")
+        print(f"   Review the {len(unused_labels)} unused label(s) and remove if not needed\n")
+
+    if unnamed_labels:
+        print(f"✏️  Add names to unnamed labels:")
+        print(f"   Give descriptive names to {len(unnamed_labels)} color-only label(s)\n")
+
+    if similar_labels:
+        print(f"🔍 Review similar labels for typos or redundancy:")
+        print(f"   Check {len(similar_labels)} similar pair(s) and consolidate if appropriate\n")
+
+    if issues == 0:
+        print(f"✅ Your labels are well organized! No issues found.\n")
+
+    # Audit score
+    print(f"{'='*80}")
+    audit_score = max(0, 100 - (len(duplicates) * 10) - (len(unused_labels) * 2) -
+                     (len(unnamed_labels) * 5) - (len(similar_labels) * 5))
+
+    if audit_score >= 90:
+        status = "🟢 EXCELLENT"
+    elif audit_score >= 70:
+        status = "🟡 GOOD"
+    elif audit_score >= 50:
+        status = "🟠 NEEDS ATTENTION"
+    else:
+        status = "🔴 CRITICAL"
+
+    print(f"Label Audit Score: {audit_score}/100 - {status}")
+    print(f"Issues Found: {issues}")
+    print(f"Duplicate names: {len(duplicates)}")
+    print(f"Unused labels: {len(unused_labels)}")
+    print(f"Unnamed labels: {len(unnamed_labels)}")
+    print(f"Similar labels: {len(similar_labels)} pairs")
+    print(f"{'='*80}\n")

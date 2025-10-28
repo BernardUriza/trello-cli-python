@@ -8,7 +8,7 @@ from .card import (
     cmd_cards, cmd_add_card, cmd_show_card,
     cmd_update_card, cmd_move_card,
     cmd_add_checklist, cmd_add_checkitem,
-    cmd_set_due, cmd_add_comment, cmd_delete_card
+    cmd_set_due, cmd_add_comment, cmd_delete_card, cmd_rename_card
 )
 from .label import cmd_add_label
 from .help import cmd_help, cmd_help_json
@@ -32,14 +32,14 @@ from .standardize import (
     cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates
 )
 from .migrate import cmd_migrate_board, cmd_archive_board
-from .audit import cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit
+from .audit import cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit, cmd_label_audit
 
 __all__ = [
     # Basic commands
     'cmd_boards', 'cmd_create_board',
     'cmd_lists', 'cmd_create_list', 'cmd_archive_list',
     'cmd_cards', 'cmd_add_card', 'cmd_show_card',
-    'cmd_update_card', 'cmd_move_card',
+    'cmd_update_card', 'cmd_move_card', 'cmd_rename_card',
     'cmd_add_checklist', 'cmd_add_checkitem',
     'cmd_set_due', 'cmd_add_comment', 'cmd_delete_card',
     'cmd_add_label',
@@ -62,5 +62,5 @@ __all__ = [
     # Board migration
     'cmd_migrate_board', 'cmd_archive_board',
     # Audit commands
-    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot', 'cmd_sprint_audit'
+    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot', 'cmd_sprint_audit', 'cmd_label_audit'
 ]
