@@ -34,7 +34,11 @@ from .commands import (
     # Board migration
     cmd_migrate_board, cmd_archive_board,
     # Audit commands
-    cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit, cmd_label_audit
+    cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit, cmd_label_audit,
+    # Member management
+    cmd_assign_card, cmd_unassign_card, cmd_card_log,
+    # Export
+    cmd_export_board
 )
 
 HELP_TEXT = """
@@ -85,12 +89,20 @@ BOARD STANDARDIZATION (Agile/Scrum):
   scrum-check <board_id>      Validate Agile/Scrum conformity
   migrate-cards <list_id> <target_board_id> ["target_list"]
 
+MEMBER MANAGEMENT:
+  assign-card <card_id> <member>        Assign member to card (use 'me' for self)
+  unassign-card <card_id> <member>      Remove member from card
+  card-log <card_id> [limit]            Show card action history
+
 AUDIT & ANALYSIS:
   board-audit <board_id> ["pattern"]    Comprehensive board audit
   list-audit <list_id> ["pattern"]      Detailed list audit
   list-snapshot <list_id> ["file.json"] Export list to JSON snapshot
   sprint-audit <board_id> ["sprint"]    Sprint-specific audit (dates, overdue)
   label-audit <board_id>                Label audit (duplicates, unused, typos)
+
+EXPORT & REPORTING:
+  export-board <board_id> <format> ["file"]  Export board (json/csv/md)
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -470,6 +482,34 @@ def main():
                 print("❌ Usage: trello label-audit <board_id>")
                 sys.exit(1)
             cmd_label_audit(sys.argv[2])
+
+        # Member Management Commands
+        elif command == 'assign-card':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello assign-card <card_id> <member_username|name|'me'>")
+                sys.exit(1)
+            cmd_assign_card(sys.argv[2], sys.argv[3])
+
+        elif command == 'unassign-card':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello unassign-card <card_id> <member_username|name|'me'>")
+                sys.exit(1)
+            cmd_unassign_card(sys.argv[2], sys.argv[3])
+
+        elif command == 'card-log':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello card-log <card_id> [limit]")
+                sys.exit(1)
+            limit = int(sys.argv[3]) if len(sys.argv) > 3 else 50
+            cmd_card_log(sys.argv[2], limit)
+
+        # Export Commands
+        elif command == 'export-board':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello export-board <board_id> <json|csv|md> [\"output_file\"]")
+                sys.exit(1)
+            output_file = sys.argv[4] if len(sys.argv) > 4 else None
+            cmd_export_board(sys.argv[2], sys.argv[3], output_file)
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")

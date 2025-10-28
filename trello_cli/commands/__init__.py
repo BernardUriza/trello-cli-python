@@ -33,6 +33,8 @@ from .standardize import (
 )
 from .migrate import cmd_migrate_board, cmd_archive_board
 from .audit import cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit, cmd_label_audit
+from .members import cmd_assign_card, cmd_unassign_card, cmd_card_log
+from .export import cmd_export_board
 
 __all__ = [
     # Basic commands
@@ -62,5 +64,9 @@ __all__ = [
     # Board migration
     'cmd_migrate_board', 'cmd_archive_board',
     # Audit commands
-    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot', 'cmd_sprint_audit', 'cmd_label_audit'
+    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot', 'cmd_sprint_audit', 'cmd_label_audit',
+    # Member management
+    'cmd_assign_card', 'cmd_unassign_card', 'cmd_card_log',
+    # Export
+    'cmd_export_board'
 ]
