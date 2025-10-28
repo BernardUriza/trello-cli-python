@@ -100,9 +100,15 @@ def cmd_delete_label(board_id, label_identifier):
             print(f"  ... and {len(board_labels) - 20} more")
         return
 
-    # Delete the label
-    label_to_delete.delete()
+    # Delete the label using REST API
     display_name = label_to_delete.name or f"[unnamed {label_to_delete.color}]"
+
+    # Use the py-trello client's fetch_json method to make DELETE request
+    client.client.fetch_json(
+        f'/labels/{label_to_delete.id}',
+        http_method='DELETE'
+    )
+
     print(f"✅ Label '{display_name}' ({label_to_delete.color}) deleted from board")
     print(f"   This label has been removed from all cards")
 
@@ -142,8 +148,12 @@ def cmd_rename_label(board_id, label_identifier, new_name):
 
     old_name = label_to_rename.name or f"[unnamed {label_to_rename.color}]"
 
-    # Rename the label
-    label_to_rename.set_name(new_name)
+    # Rename the label using REST API
+    client.client.fetch_json(
+        f'/labels/{label_to_rename.id}',
+        http_method='PUT',
+        post_args={'name': new_name}
+    )
 
     print(f"✅ Label renamed:")
     print(f"   Old: {old_name} ({label_to_rename.color})")

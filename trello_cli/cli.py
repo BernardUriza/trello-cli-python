@@ -6,6 +6,7 @@ Trello CLI - Main command-line interface
 import sys
 from . import __version__
 from .config import configure_interactive
+from .plugins import cmd_plugin_list, cmd_plugin_info, cmd_plugin_run
 from .commands import (
     # Basic commands
     cmd_boards, cmd_create_board,
@@ -103,6 +104,11 @@ AUDIT & ANALYSIS:
 
 EXPORT & REPORTING:
   export-board <board_id> <format> ["file"]  Export board (json/csv/md)
+
+PLUGINS (EXTENSIBILITY):
+  plugin list [--plugin-dir DIR]             List available plugins
+  plugin info <name> [--plugin-dir DIR]      Show plugin details
+  plugin run <name> [args] [--plugin-dir DIR] Execute a plugin
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -510,6 +516,50 @@ def main():
                 sys.exit(1)
             output_file = sys.argv[4] if len(sys.argv) > 4 else None
             cmd_export_board(sys.argv[2], sys.argv[3], output_file)
+
+        # Plugin Commands
+        elif command == 'plugin':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello plugin <list|info|run> [args]")
+                print("\n  plugin list                    - List all plugins")
+                print("  plugin info <name>             - Show plugin details")
+                print("  plugin run <name> [args]       - Execute a plugin")
+                print("\n  Optional: --plugin-dir <path>  - Use custom plugin directory")
+                sys.exit(1)
+
+            subcommand = sys.argv[2]
+
+            # Extract --plugin-dir if present
+            plugin_dir = None
+            if '--plugin-dir' in sys.argv:
+                idx = sys.argv.index('--plugin-dir')
+                if idx + 1 < len(sys.argv):
+                    plugin_dir = sys.argv[idx + 1]
+                    # Remove --plugin-dir and its value from argv
+                    sys.argv.pop(idx)
+                    sys.argv.pop(idx)
+
+            if subcommand == 'list':
+                cmd_plugin_list(plugin_dir)
+
+            elif subcommand == 'info':
+                if len(sys.argv) < 4:
+                    print("❌ Usage: trello plugin info <name>")
+                    sys.exit(1)
+                cmd_plugin_info(sys.argv[3], plugin_dir)
+
+            elif subcommand == 'run':
+                if len(sys.argv) < 4:
+                    print("❌ Usage: trello plugin run <name> [args]")
+                    sys.exit(1)
+                plugin_name = sys.argv[3]
+                plugin_args = sys.argv[4:]
+                cmd_plugin_run(plugin_name, plugin_args, plugin_dir)
+
+            else:
+                print(f"❌ Unknown plugin subcommand: {subcommand}")
+                print("   Valid subcommands: list, info, run")
+                sys.exit(1)
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")
