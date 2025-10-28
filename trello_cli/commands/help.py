@@ -218,6 +218,31 @@ def cmd_help_json():
                 "args": [
                     {"name": "board_id", "type": "string", "required": True}
                 ]
+            },
+            "remove-label": {
+                "description": "Remove a label from a card (label stays on board)",
+                "usage": "trello remove-label <card_id> \"label_name|color|id\"",
+                "args": [
+                    {"name": "card_id", "type": "string", "required": True},
+                    {"name": "label_identifier", "type": "string", "required": True, "description": "Label name, color, or ID"}
+                ]
+            },
+            "delete-label": {
+                "description": "Delete a label from the board entirely (removes from all cards)",
+                "usage": "trello delete-label <board_id> \"label_name|color|id\"",
+                "args": [
+                    {"name": "board_id", "type": "string", "required": True},
+                    {"name": "label_identifier", "type": "string", "required": True, "description": "Label name, color, or ID"}
+                ]
+            },
+            "rename-label": {
+                "description": "Rename a label on the board (affects all cards with this label)",
+                "usage": "trello rename-label <board_id> \"current_label\" \"new_name\"",
+                "args": [
+                    {"name": "board_id", "type": "string", "required": True},
+                    {"name": "current_label", "type": "string", "required": True, "description": "Current label name, color, or ID"},
+                    {"name": "new_name", "type": "string", "required": True}
+                ]
             }
         },
         "usage_notes": [
@@ -262,10 +287,15 @@ CARD COMMANDS:
 
 CARD ENHANCEMENT COMMANDS:
   add-label <card_id> "color" ["name"]   Add label to card
+  remove-label <card_id> "label"         Remove label from card
   add-checklist <card_id> "name"         Add checklist to card
   add-checkitem <card_id> "checklist" "item"   Add item to checklist
   set-due <card_id> "YYYY-MM-DD"         Set due date
   add-comment <card_id> "comment"        Add comment to card
+
+LABEL MANAGEMENT (BOARD-LEVEL):
+  delete-label <board_id> "label"        Delete label from board
+  rename-label <board_id> "label" "new"  Rename label on board
 
 AUDIT & ANALYSIS COMMANDS:
   board-audit <board_id> ["pattern"]     Comprehensive board audit

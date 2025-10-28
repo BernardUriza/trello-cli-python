@@ -10,7 +10,7 @@ from .card import (
     cmd_add_checklist, cmd_add_checkitem,
     cmd_set_due, cmd_add_comment, cmd_delete_card, cmd_rename_card
 )
-from .label import cmd_add_label
+from .label import cmd_add_label, cmd_remove_label, cmd_delete_label, cmd_rename_label
 from .help import cmd_help, cmd_help_json
 from .discovery import cmd_board_overview, cmd_board_ids, cmd_search_cards
 from .bulk import (
@@ -42,7 +42,7 @@ __all__ = [
     'cmd_update_card', 'cmd_move_card', 'cmd_rename_card',
     'cmd_add_checklist', 'cmd_add_checkitem',
     'cmd_set_due', 'cmd_add_comment', 'cmd_delete_card',
-    'cmd_add_label',
+    'cmd_add_label', 'cmd_remove_label', 'cmd_delete_label', 'cmd_rename_label',
     # Help & Discovery
     'cmd_help', 'cmd_help_json',
     'cmd_board_overview', 'cmd_board_ids', 'cmd_search_cards',

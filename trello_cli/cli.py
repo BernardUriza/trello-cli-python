@@ -14,7 +14,7 @@ from .commands import (
     cmd_update_card, cmd_move_card, cmd_rename_card,
     cmd_add_checklist, cmd_add_checkitem,
     cmd_set_due, cmd_add_comment, cmd_delete_card,
-    cmd_add_label,
+    cmd_add_label, cmd_remove_label, cmd_delete_label, cmd_rename_label,
     # Help & Discovery
     cmd_help, cmd_help_json,
     cmd_board_overview, cmd_board_ids, cmd_search_cards,
@@ -103,6 +103,9 @@ BASIC BOARD/LIST/CARD COMMANDS:
   move-card <card_id> <list_id>
   delete-card <card_id>                 Delete a card permanently
   add-label <card_id> "color" ["name"]
+  remove-label <card_id> "label"        Remove label from card
+  delete-label <board_id> "label"       Delete label from board
+  rename-label <board_id> "label" "new" Rename label on board
   add-checklist <card_id> "name"
   set-due <card_id> "YYYY-MM-DD"
   add-comment <card_id> "text"
@@ -218,6 +221,24 @@ def main():
                 sys.exit(1)
             label_name = sys.argv[4] if len(sys.argv) > 4 else ""
             cmd_add_label(sys.argv[2], sys.argv[3], label_name)
+
+        elif command == 'remove-label':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello remove-label <card_id> \"label_name|color|id\"")
+                sys.exit(1)
+            cmd_remove_label(sys.argv[2], sys.argv[3])
+
+        elif command == 'delete-label':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello delete-label <board_id> \"label_name|color|id\"")
+                sys.exit(1)
+            cmd_delete_label(sys.argv[2], sys.argv[3])
+
+        elif command == 'rename-label':
+            if len(sys.argv) < 5:
+                print("❌ Usage: trello rename-label <board_id> \"current_label\" \"new_name\"")
+                sys.exit(1)
+            cmd_rename_label(sys.argv[2], sys.argv[3], sys.argv[4])
 
         elif command == 'add-checklist':
             if len(sys.argv) < 4:
