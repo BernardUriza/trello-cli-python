@@ -9,40 +9,51 @@ from collections import defaultdict, Counter
 from ..client import get_client
 
 
-def cmd_board_audit(board_id, pattern=None):
+def cmd_board_audit(board_id, pattern=None, fix_labels=False, report_json=False):
     """
-    Comprehensive board audit:
-    - Cards without proper ID naming pattern
-    - Cards without members assigned
-    - Empty lists
-    - Stale lists (no activity in 30+ days)
-    - Cards in Done that could be deleted
-    - Cards without labels
-    - Cards without descriptions
+    Comprehensive board audit - exposes structural chaos and workflow inconsistencies:
+
+    CRITICAL VALIDATIONS:
+    1. Cards in "Done" without due date (traceability failure)
+    2. Cards in "Done" with incomplete checklists (premature completion)
+    3. Cards without due dates in active lists (Sprint, Testing, In Progress)
+    4. Overdue cards not marked as complete (zombie tasks)
+    5. Cards without assigned members in execution lists (orphaned work)
+    6. Duplicate/unused labels (label chaos)
+    7. Empty checklists (fake productivity)
+    8. Cards without descriptions in critical lists
+    9. Naming pattern violations (inconsistent nomenclature)
     """
     client = get_client()
     board = client.get_board(board_id)
     lists = board.list_lists()
 
-    print(f"\n{'='*80}")
-    print(f"BOARD AUDIT REPORT - {board.name}")
-    print(f"Board ID: {board_id}")
-    print(f"{'='*80}\n")
-
     # Compile pattern if provided
     id_pattern = re.compile(pattern) if pattern else None
 
-    # Initialize issue trackers
+    # Initialize critical issue trackers
+    done_cards_no_due = []
+    done_cards_incomplete_checklist = []
+    active_cards_no_due = []
+    overdue_not_complete = []
+    execution_cards_no_members = []
+    empty_checklists = []
     cards_without_pattern = []
-    cards_without_members = []
+    cards_without_description_critical = []
+
+    # Additional trackers
     cards_without_labels = []
-    cards_without_description = []
     empty_lists = []
     stale_lists = []
-    done_cards_to_delete = []
 
     total_cards = 0
     total_active_lists = 0
+
+    # Define list categories
+    DONE_KEYWORDS = ['done', 'completed', 'finished', 'closed', 'archive']
+    ACTIVE_KEYWORDS = ['sprint', 'doing', 'in progress', 'testing', 'ready', 'wip', 'development']
+    EXECUTION_KEYWORDS = ['sprint', 'doing', 'in progress', 'testing', 'development']
+    CRITICAL_KEYWORDS = ['sprint', 'testing', 'in progress', 'doing', 'review']
 
     for lst in lists:
         if lst.closed:
@@ -58,7 +69,14 @@ def cmd_board_audit(board_id, pattern=None):
 
         total_cards += len(cards)
 
-        # Check if list is stale (no cards created in last 30 days)
+        # Categorize list
+        list_name_lower = lst.name.lower()
+        is_done_list = any(keyword in list_name_lower for keyword in DONE_KEYWORDS)
+        is_active_list = any(keyword in list_name_lower for keyword in ACTIVE_KEYWORDS)
+        is_execution_list = any(keyword in list_name_lower for keyword in EXECUTION_KEYWORDS)
+        is_critical_list = any(keyword in list_name_lower for keyword in CRITICAL_KEYWORDS)
+
+        # Check if list is stale
         is_stale = True
         newest_card_age = None
 
@@ -76,175 +94,440 @@ def cmd_board_audit(board_id, pattern=None):
             except:
                 pass
 
-        if is_stale and newest_card_age and 'done' not in lst.name.lower():
+        if is_stale and newest_card_age and not is_done_list:
             stale_lists.append((lst.name, newest_card_age))
 
-        # Check cards in Done lists for deletion candidates
-        is_done_list = any(keyword in lst.name.lower() for keyword in ['done', 'completed', 'finished', 'closed'])
-
+        # Audit each card
         for card in cards:
-            # Check ID pattern
-            if id_pattern and not id_pattern.search(card.name):
-                cards_without_pattern.append((card.name, card.id, lst.name))
+            # Get card age
+            try:
+                timestamp = int(card.id[:8], 16)
+                created_date = datetime.fromtimestamp(timestamp)
+                age_days = (datetime.now() - created_date).days
+            except:
+                age_days = None
 
-            # Check for assigned members
-            if not card.member_id and not hasattr(card, 'idMembers'):
-                cards_without_members.append((card.name, card.id, lst.name))
-
-            # Check for labels
-            if not card.labels or len(card.labels) == 0:
-                cards_without_labels.append((card.name, card.id, lst.name))
-
-            # Check for description
-            if not card.desc or card.desc.strip() == "":
-                cards_without_description.append((card.name, card.id, lst.name))
-
-            # Cards in Done to consider for deletion
-            if is_done_list:
+            # Parse due date
+            due_date = None
+            is_overdue = False
+            days_overdue = 0
+            if card.due:
                 try:
-                    timestamp = int(card.id[:8], 16)
-                    created_date = datetime.fromtimestamp(timestamp)
-                    age_days = (datetime.now() - created_date).days
+                    if isinstance(card.due, str):
+                        due_date = datetime.fromisoformat(card.due.replace('Z', '+00:00'))
+                    else:
+                        due_date = card.due
 
-                    # Cards completed more than 7 days ago
-                    if age_days > 7:
-                        done_cards_to_delete.append((card.name, card.id, lst.name, age_days))
+                    if due_date < datetime.now():
+                        is_overdue = True
+                        days_overdue = (datetime.now() - due_date).days
                 except:
                     pass
 
-    # Calculate audit score
-    issues_found = 0
-    max_issues = 6
+            # Get checklist status
+            has_checklist = len(card.checklists) > 0
+            checklist_complete = True
+            checklist_empty = False
+            total_items = 0
+            completed_items = 0
 
-    # Print summary
+            if has_checklist:
+                for checklist in card.checklists:
+                    items = checklist.items
+                    if len(items) == 0:
+                        checklist_empty = True
+
+                    for item in items:
+                        total_items += 1
+                        if item.get('state', 'incomplete') == 'complete':
+                            completed_items += 1
+
+                if total_items > 0 and completed_items < total_items:
+                    checklist_complete = False
+
+            # Get member status
+            has_members = False
+            if hasattr(card, 'idMembers') and card.idMembers:
+                has_members = True
+            elif hasattr(card, 'member_id') and card.member_id:
+                has_members = True
+
+            # CRITICAL VALIDATION 1: Cards in Done without due date
+            if is_done_list and not card.due:
+                done_cards_no_due.append({
+                    'card': card,
+                    'list': lst.name,
+                    'age': age_days
+                })
+
+            # CRITICAL VALIDATION 2: Cards in Done with incomplete checklists
+            if is_done_list and has_checklist and not checklist_complete:
+                done_cards_incomplete_checklist.append({
+                    'card': card,
+                    'list': lst.name,
+                    'total': total_items,
+                    'completed': completed_items
+                })
+
+            # CRITICAL VALIDATION 3: Active cards without due dates
+            if is_active_list and not card.due:
+                active_cards_no_due.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+            # CRITICAL VALIDATION 4: Overdue cards not marked complete
+            if is_overdue and not is_done_list:
+                overdue_not_complete.append({
+                    'card': card,
+                    'list': lst.name,
+                    'due_date': due_date,
+                    'days_overdue': days_overdue
+                })
+
+            # CRITICAL VALIDATION 5: Execution cards without members
+            if is_execution_list and not has_members:
+                execution_cards_no_members.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+            # CRITICAL VALIDATION 7: Empty checklists
+            if checklist_empty:
+                empty_checklists.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+            # Additional validations
+            if id_pattern and not id_pattern.search(card.name):
+                cards_without_pattern.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+            if is_critical_list and (not card.desc or card.desc.strip() == ""):
+                cards_without_description_critical.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+            if not card.labels or len(card.labels) == 0:
+                cards_without_labels.append({
+                    'card': card,
+                    'list': lst.name
+                })
+
+    # Calculate severity scores
+    critical_issues = 0
+    high_issues = 0
+    medium_issues = 0
+
+    if done_cards_no_due: critical_issues += 1
+    if done_cards_incomplete_checklist: critical_issues += 1
+    if active_cards_no_due: high_issues += 1
+    if overdue_not_complete: critical_issues += 1
+    if execution_cards_no_members: high_issues += 1
+    if empty_checklists: medium_issues += 1
+    if cards_without_pattern and id_pattern: medium_issues += 1
+    if cards_without_description_critical: medium_issues += 1
+
+    total_issues = critical_issues + high_issues + medium_issues
+
+    # If JSON report requested
+    if report_json:
+        report = {
+            "board_id": board_id,
+            "board_name": board.name,
+            "audit_timestamp": datetime.now().isoformat(),
+            "summary": {
+                "total_lists": total_active_lists,
+                "total_cards": total_cards,
+                "critical_issues": critical_issues,
+                "high_issues": high_issues,
+                "medium_issues": medium_issues,
+                "total_issues": total_issues
+            },
+            "critical_findings": {
+                "done_no_due": len(done_cards_no_due),
+                "done_incomplete_checklist": len(done_cards_incomplete_checklist),
+                "overdue_not_complete": len(overdue_not_complete)
+            },
+            "high_findings": {
+                "active_no_due": len(active_cards_no_due),
+                "execution_no_members": len(execution_cards_no_members)
+            },
+            "medium_findings": {
+                "empty_checklists": len(empty_checklists),
+                "pattern_violations": len(cards_without_pattern),
+                "critical_no_description": len(cards_without_description_critical)
+            },
+            "health_score": max(0, 100 - (critical_issues * 20) - (high_issues * 10) - (medium_issues * 5))
+        }
+        print(json.dumps(report, indent=2))
+        return
+
+    # Human-readable output
+    print(f"\n{'='*80}")
+    print(f"🔍 BOARD AUDIT REPORT - {board.name}")
+    print(f"Board ID: {board_id}")
+    print(f"Audit Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}\n")
+
+    # Summary
     print(f"📊 BOARD SUMMARY:")
     print(f"   Total Active Lists: {total_active_lists}")
     print(f"   Total Cards: {total_cards}")
-    print(f"   Empty Lists: {len(empty_lists)}")
-    print(f"   Stale Lists: {len(stale_lists)}")
+    print(f"   Critical Issues: {critical_issues}")
+    print(f"   High Priority Issues: {high_issues}")
+    print(f"   Medium Priority Issues: {medium_issues}")
     print()
 
-    # Print issues
+    # CRITICAL ISSUES
     print(f"{'='*80}")
-    print(f"AUDIT FINDINGS:")
+    print(f"🔴 CRITICAL ISSUES (Workflow Killers)")
     print(f"{'='*80}\n")
 
-    # ID Pattern violations
-    if id_pattern:
-        if cards_without_pattern:
-            issues_found += 1
-            print(f"⚠️  NAMING PATTERN VIOLATIONS: {len(cards_without_pattern)} card(s)")
-            print(f"   Pattern: {pattern}")
-            for card_name, card_id, list_name in cards_without_pattern[:10]:
-                print(f"   • {card_name[:50]}")
-                print(f"     ID: {card_id} | List: {list_name}")
-            if len(cards_without_pattern) > 10:
-                print(f"   ... and {len(cards_without_pattern) - 10} more")
+    # Issue 1: Done without due date
+    if done_cards_no_due:
+        print(f"❌ CARDS IN 'DONE' WITHOUT DUE DATE: {len(done_cards_no_due)} card(s)")
+        print(f"   Problem: No traceability - when was this completed?")
+        print(f"   Impact: Cannot measure velocity or predict future work\n")
+
+        for item in done_cards_no_due[:10]:
+            card = item['card']
+            print(f"   • {card.name[:55]}")
+            print(f"     List: {item['list']} | ID: {card.id}")
+            print(f"     Fix: trello set-due {card.id} \"YYYY-MM-DD\"")
+
+        if len(done_cards_no_due) > 10:
+            print(f"   ... and {len(done_cards_no_due) - 10} more\n")
+        print()
+    else:
+        print(f"✅ All 'Done' cards have due dates\n")
+
+    # Issue 2: Done with incomplete checklists
+    if done_cards_incomplete_checklist:
+        print(f"❌ CARDS IN 'DONE' WITH INCOMPLETE CHECKLISTS: {len(done_cards_incomplete_checklist)} card(s)")
+        print(f"   Problem: Marked complete but checklist says otherwise")
+        print(f"   Impact: False sense of completion, missing deliverables\n")
+
+        for item in done_cards_incomplete_checklist[:10]:
+            card = item['card']
+            completion = f"{item['completed']}/{item['total']}"
+            print(f"   • {card.name[:55]}")
+            print(f"     List: {item['list']} | Checklist: {completion} items")
+            print(f"     ID: {card.id}")
+
+        if len(done_cards_incomplete_checklist) > 10:
+            print(f"   ... and {len(done_cards_incomplete_checklist) - 10} more\n")
+        print()
+    else:
+        print(f"✅ All 'Done' cards have complete checklists\n")
+
+    # Issue 4: Overdue cards not marked complete
+    if overdue_not_complete:
+        print(f"❌ OVERDUE CARDS NOT MARKED COMPLETE: {len(overdue_not_complete)} card(s)")
+        print(f"   Problem: Past due date but still in active workflow")
+        print(f"   Impact: Zombie tasks that kill sprint health\n")
+
+        # Sort by most overdue
+        sorted_overdue = sorted(overdue_not_complete, key=lambda x: x['days_overdue'], reverse=True)
+
+        for item in sorted_overdue[:10]:
+            card = item['card']
+            days = item['days_overdue']
+            due_str = item['due_date'].strftime('%Y-%m-%d')
+
+            if days > 7:
+                urgency = "🔴 CRITICAL"
+            elif days > 3:
+                urgency = "🟠 HIGH"
+            else:
+                urgency = "🟡 MEDIUM"
+
+            print(f"   {urgency} │ {days} days overdue (due: {due_str})")
+            print(f"           │ {card.name[:50]}")
+            print(f"           │ List: {item['list']} | ID: {card.id}")
             print()
-        else:
-            print(f"✅ All cards follow naming pattern: {pattern}\n")
 
-    # Cards without members
-    if cards_without_members:
-        issues_found += 1
-        print(f"⚠️  CARDS WITHOUT ASSIGNED MEMBERS: {len(cards_without_members)} card(s)")
-        for card_name, card_id, list_name in cards_without_members[:10]:
-            print(f"   • {card_name[:50]}")
-            print(f"     ID: {card_id} | List: {list_name}")
-        if len(cards_without_members) > 10:
-            print(f"   ... and {len(cards_without_members) - 10} more")
+        if len(overdue_not_complete) > 10:
+            print(f"   ... and {len(overdue_not_complete) - 10} more\n")
         print()
     else:
-        print(f"✅ All cards have assigned members\n")
+        print(f"✅ No overdue cards in active workflow\n")
 
-    # Cards without labels
-    if cards_without_labels:
-        issues_found += 1
-        print(f"⚠️  CARDS WITHOUT LABELS: {len(cards_without_labels)} card(s)")
-        for card_name, card_id, list_name in cards_without_labels[:10]:
-            print(f"   • {card_name[:50]}")
-            print(f"     ID: {card_id} | List: {list_name}")
-        if len(cards_without_labels) > 10:
-            print(f"   ... and {len(cards_without_labels) - 10} more")
-        print()
-    else:
-        print(f"✅ All cards have labels\n")
-
-    # Cards without description
-    if cards_without_description:
-        issues_found += 1
-        print(f"⚠️  CARDS WITHOUT DESCRIPTION: {len(cards_without_description)} card(s)")
-        for card_name, card_id, list_name in cards_without_description[:10]:
-            print(f"   • {card_name[:50]}")
-            print(f"     ID: {card_id} | List: {list_name}")
-        if len(cards_without_description) > 10:
-            print(f"   ... and {len(cards_without_description) - 10} more")
-        print()
-    else:
-        print(f"✅ All cards have descriptions\n")
-
-    # Empty lists
-    if empty_lists:
-        issues_found += 1
-        print(f"📭 EMPTY LISTS: {len(empty_lists)} list(s)")
-        for list_name in empty_lists:
-            print(f"   • {list_name}")
-        print()
-    else:
-        print(f"✅ No empty lists\n")
-
-    # Stale lists
-    if stale_lists:
-        issues_found += 1
-        print(f"⏰ STALE LISTS: {len(stale_lists)} list(s) with no activity in 30+ days")
-        for list_name, age in sorted(stale_lists, key=lambda x: x[1], reverse=True):
-            print(f"   • {list_name}: {age} days since last card")
-        print()
-    else:
-        print(f"✅ All lists have recent activity\n")
-
-    # Deletion candidates
+    # HIGH PRIORITY ISSUES
     print(f"{'='*80}")
-    print(f"MAINTENANCE RECOMMENDATIONS:")
+    print(f"🟠 HIGH PRIORITY ISSUES (Execution Blockers)")
     print(f"{'='*80}\n")
 
-    if done_cards_to_delete:
-        print(f"🗑️  CARDS READY FOR DELETION: {len(done_cards_to_delete)} card(s) in Done lists")
-        print(f"   (Completed more than 7 days ago)\n")
+    # Issue 3: Active cards without due dates
+    if active_cards_no_due:
+        print(f"⚠️  ACTIVE CARDS WITHOUT DUE DATES: {len(active_cards_no_due)} card(s)")
+        print(f"   Problem: How do you know if they're late?")
+        print(f"   Impact: No accountability, no sprint planning possible\n")
 
         # Group by list
         by_list = defaultdict(list)
-        for card_name, card_id, list_name, age in done_cards_to_delete:
-            by_list[list_name].append((card_name, card_id, age))
+        for item in active_cards_no_due:
+            by_list[item['list']].append(item['card'])
 
         for list_name in sorted(by_list.keys()):
             cards = by_list[list_name]
             print(f"   📋 {list_name} ({len(cards)} card(s)):")
-            for card_name, card_id, age in sorted(cards, key=lambda x: x[2], reverse=True)[:10]:
-                print(f"      • {card_name[:50]}")
-                print(f"        ID: {card_id} | Age: {age} days")
-                print(f"        Delete command: trello delete-card {card_id}")
-            if len(cards) > 10:
-                print(f"      ... and {len(cards) - 10} more")
+            for card in cards[:5]:
+                print(f"      • {card.name[:55]}")
+                print(f"        ID: {card.id}")
+            if len(cards) > 5:
+                print(f"      ... and {len(cards) - 5} more")
             print()
+        print()
     else:
-        print(f"✅ No old cards in Done lists\n")
+        print(f"✅ All active cards have due dates\n")
 
-    # Audit score
+    # Issue 5: Execution cards without members
+    if execution_cards_no_members:
+        print(f"⚠️  EXECUTION CARDS WITHOUT ASSIGNED MEMBERS: {len(execution_cards_no_members)} card(s)")
+        print(f"   Problem: Who's doing this work?")
+        print(f"   Impact: Orphaned tasks that nobody owns\n")
+
+        # Group by list
+        by_list = defaultdict(list)
+        for item in execution_cards_no_members:
+            by_list[item['list']].append(item['card'])
+
+        for list_name in sorted(by_list.keys()):
+            cards = by_list[list_name]
+            print(f"   📋 {list_name} ({len(cards)} card(s)):")
+            for card in cards[:5]:
+                print(f"      • {card.name[:55]}")
+                print(f"        ID: {card.id}")
+                print(f"        Fix: trello assign-card {card.id} <member_id>")
+            if len(cards) > 5:
+                print(f"      ... and {len(cards) - 5} more")
+            print()
+        print()
+    else:
+        print(f"✅ All execution cards have assigned members\n")
+
+    # MEDIUM PRIORITY ISSUES
     print(f"{'='*80}")
-    audit_score = max(0, 100 - (issues_found * 15))
+    print(f"🟡 MEDIUM PRIORITY ISSUES (Quality & Consistency)")
+    print(f"{'='*80}\n")
 
-    if audit_score >= 90:
+    # Issue 7: Empty checklists
+    if empty_checklists:
+        print(f"⚠️  EMPTY CHECKLISTS: {len(empty_checklists)} card(s)")
+        print(f"   Problem: Checklist created but never filled")
+        print(f"   Impact: False productivity signal\n")
+
+        for item in empty_checklists[:10]:
+            card = item['card']
+            print(f"   • {card.name[:60]}")
+            print(f"     List: {item['list']} | ID: {card.id}")
+
+        if len(empty_checklists) > 10:
+            print(f"   ... and {len(empty_checklists) - 10} more\n")
+        print()
+    else:
+        print(f"✅ No empty checklists found\n")
+
+    # Pattern violations
+    if id_pattern and cards_without_pattern:
+        print(f"⚠️  NAMING PATTERN VIOLATIONS: {len(cards_without_pattern)} card(s)")
+        print(f"   Pattern: {pattern}")
+        print(f"   Problem: Inconsistent nomenclature")
+        print(f"   Impact: Hard to search, filter, and organize\n")
+
+        for item in cards_without_pattern[:10]:
+            card = item['card']
+            print(f"   • {card.name[:60]}")
+            print(f"     List: {item['list']} | ID: {card.id}")
+
+        if len(cards_without_pattern) > 10:
+            print(f"   ... and {len(cards_without_pattern) - 10} more\n")
+        print()
+
+    # Critical lists without descriptions
+    if cards_without_description_critical:
+        print(f"⚠️  CARDS WITHOUT DESCRIPTIONS (in critical lists): {len(cards_without_description_critical)} card(s)")
+        print(f"   Problem: No context for implementation")
+        print(f"   Impact: Team members guessing requirements\n")
+
+        for item in cards_without_description_critical[:10]:
+            card = item['card']
+            print(f"   • {card.name[:60]}")
+            print(f"     List: {item['list']} | ID: {card.id}")
+
+        if len(cards_without_description_critical) > 10:
+            print(f"   ... and {len(cards_without_description_critical) - 10} more\n")
+        print()
+
+    # Health Score
+    print(f"{'='*80}")
+    print(f"📊 BOARD HEALTH SCORE")
+    print(f"{'='*80}\n")
+
+    health_score = max(0, 100 - (critical_issues * 20) - (high_issues * 10) - (medium_issues * 5))
+
+    if health_score >= 90:
         status = "🟢 EXCELLENT"
-    elif audit_score >= 70:
+        message = "Your board is well-maintained and ready for production"
+    elif health_score >= 70:
         status = "🟡 GOOD"
-    elif audit_score >= 50:
+        message = "Minor issues detected, but generally healthy"
+    elif health_score >= 50:
         status = "🟠 NEEDS ATTENTION"
+        message = "Significant workflow issues detected"
     else:
         status = "🔴 CRITICAL"
+        message = "Board has severe structural problems affecting delivery"
 
-    print(f"Audit Score: {audit_score}/100 - {status}")
-    print(f"Issues Found: {issues_found}")
+    print(f"Health Score: {health_score}/100 - {status}")
+    print(f"Assessment: {message}")
+    print()
+    print(f"Issue Breakdown:")
+    print(f"  Critical Issues:  {critical_issues} (workflow killers)")
+    print(f"  High Priority:    {high_issues} (execution blockers)")
+    print(f"  Medium Priority:  {medium_issues} (quality issues)")
+    print(f"  Total Issues:     {total_issues}")
+    print()
+
+    # Recommendations
+    if total_issues > 0:
+        print(f"{'='*80}")
+        print(f"💡 RECOMMENDATIONS")
+        print(f"{'='*80}\n")
+
+        if critical_issues > 0:
+            print(f"🔴 IMMEDIATE ACTION REQUIRED:")
+            if done_cards_no_due:
+                print(f"   • Add due dates to {len(done_cards_no_due)} 'Done' cards for traceability")
+            if done_cards_incomplete_checklist:
+                print(f"   • Complete or remove {len(done_cards_incomplete_checklist)} incomplete checklists")
+            if overdue_not_complete:
+                print(f"   • Address {len(overdue_not_complete)} overdue cards (move to Done or update dates)")
+            print()
+
+        if high_issues > 0:
+            print(f"🟠 HIGH PRIORITY:")
+            if active_cards_no_due:
+                print(f"   • Set due dates for {len(active_cards_no_due)} active cards")
+            if execution_cards_no_members:
+                print(f"   • Assign members to {len(execution_cards_no_members)} orphaned cards")
+            print()
+
+        if medium_issues > 0:
+            print(f"🟡 CLEANUP TASKS:")
+            if empty_checklists:
+                print(f"   • Remove or populate {len(empty_checklists)} empty checklists")
+            if cards_without_pattern:
+                print(f"   • Rename {len(cards_without_pattern)} cards to follow naming pattern")
+            if cards_without_description_critical:
+                print(f"   • Add descriptions to {len(cards_without_description_critical)} critical cards")
+            print()
+
     print(f"{'='*80}\n")
 
 

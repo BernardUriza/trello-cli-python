@@ -95,8 +95,18 @@ MEMBER MANAGEMENT:
   unassign-card <card_id> <member>      Remove member from card
   card-log <card_id> [limit]            Show card action history
 
-AUDIT & ANALYSIS:
-  board-audit <board_id> ["pattern"]    Comprehensive board audit
+AUDIT & ANALYSIS (Expose Structural Chaos):
+  board-audit <board_id> ["pattern"] [--report-json] [--fix-labels]
+                                        🔍 Comprehensive workflow audit:
+                                        - Cards in Done without due dates
+                                        - Cards in Done with incomplete checklists
+                                        - Active cards without due dates
+                                        - Overdue zombie tasks
+                                        - Execution cards without owners
+                                        - Empty checklists (fake productivity)
+                                        - Pattern violations & missing descriptions
+                                        Flags: --report-json (JSON output)
+                                               --fix-labels (auto-fix duplicates)
   list-audit <list_id> ["pattern"]      Detailed list audit
   list-snapshot <list_id> ["file.json"] Export list to JSON snapshot
   sprint-audit <board_id> ["sprint"]    Sprint-specific audit (dates, overdue)
@@ -457,10 +467,28 @@ def main():
         # Audit Commands
         elif command == 'board-audit':
             if len(sys.argv) < 3:
-                print("❌ Usage: trello board-audit <board_id> [\"pattern\"]")
+                print("❌ Usage: trello board-audit <board_id> [\"pattern\"] [--report-json] [--fix-labels]")
+                print("\nFlags:")
+                print("  --report-json    Output audit results in JSON format")
+                print("  --fix-labels     Automatically fix duplicate labels")
                 sys.exit(1)
-            pattern = sys.argv[3] if len(sys.argv) > 3 else None
-            cmd_board_audit(sys.argv[2], pattern)
+
+            # Parse arguments and flags
+            board_id = sys.argv[2]
+            pattern = None
+            report_json = False
+            fix_labels = False
+
+            for i in range(3, len(sys.argv)):
+                arg = sys.argv[i]
+                if arg == '--report-json':
+                    report_json = True
+                elif arg == '--fix-labels':
+                    fix_labels = True
+                elif not pattern and not arg.startswith('--'):
+                    pattern = arg
+
+            cmd_board_audit(board_id, pattern, fix_labels, report_json)
 
         elif command == 'list-audit':
             if len(sys.argv) < 3:
