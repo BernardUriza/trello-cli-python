@@ -34,7 +34,7 @@ from .commands import (
     # Board migration
     cmd_migrate_board, cmd_archive_board,
     # Audit commands
-    cmd_board_audit, cmd_list_audit, cmd_list_snapshot
+    cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit
 )
 
 HELP_TEXT = """
@@ -89,6 +89,7 @@ AUDIT & ANALYSIS:
   board-audit <board_id> ["pattern"]    Comprehensive board audit
   list-audit <list_id> ["pattern"]      Detailed list audit
   list-snapshot <list_id> ["file.json"] Export list to JSON snapshot
+  sprint-audit <board_id> ["sprint"]    Sprint-specific audit (dates, overdue)
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -427,6 +428,13 @@ def main():
                 sys.exit(1)
             output_file = sys.argv[3] if len(sys.argv) > 3 else None
             cmd_list_snapshot(sys.argv[2], output_file)
+
+        elif command == 'sprint-audit':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello sprint-audit <board_id> [\"sprint_label\"]")
+                sys.exit(1)
+            sprint_label = sys.argv[3] if len(sys.argv) > 3 else None
+            cmd_sprint_audit(sys.argv[2], sprint_label)
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")

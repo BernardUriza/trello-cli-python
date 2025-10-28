@@ -195,6 +195,14 @@ def cmd_help_json():
                     {"name": "list_id", "type": "string", "required": True},
                     {"name": "output_file", "type": "string", "required": False, "description": "Output JSON file (prints to stdout if not provided)"}
                 ]
+            },
+            "sprint-audit": {
+                "description": "Sprint-specific audit: validates sprint labels have due dates, detects overdue cards, checks label consistency",
+                "usage": "trello sprint-audit <board_id> [\"sprint_label\"]",
+                "args": [
+                    {"name": "board_id", "type": "string", "required": True},
+                    {"name": "sprint_label", "type": "string", "required": False, "description": "Filter by specific sprint label (e.g., 'Sprint 1'). Auto-detects if not provided."}
+                ]
             }
         },
         "usage_notes": [
@@ -247,6 +255,7 @@ AUDIT & ANALYSIS COMMANDS:
   board-audit <board_id> ["pattern"]     Comprehensive board audit
   list-audit <list_id> ["pattern"]       Detailed list audit
   list-snapshot <list_id> ["file.json"]  Export list to JSON
+  sprint-audit <board_id> ["sprint"]     Sprint audit (dates, overdue)
 
 CONFIGURATION:
   config                            Configure API credentials

@@ -32,7 +32,7 @@ from .standardize import (
     cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates
 )
 from .migrate import cmd_migrate_board, cmd_archive_board
-from .audit import cmd_board_audit, cmd_list_audit, cmd_list_snapshot
+from .audit import cmd_board_audit, cmd_list_audit, cmd_list_snapshot, cmd_sprint_audit
 
 __all__ = [
     # Basic commands
@@ -62,5 +62,5 @@ __all__ = [
     # Board migration
     'cmd_migrate_board', 'cmd_archive_board',
     # Audit commands
-    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot'
+    'cmd_board_audit', 'cmd_list_audit', 'cmd_list_snapshot', 'cmd_sprint_audit'
 ]

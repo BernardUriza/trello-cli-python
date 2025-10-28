@@ -504,3 +504,269 @@ def cmd_list_audit(list_id, pattern=None):
     print(f"List Audit Score: {audit_score}/100 - {status}")
     print(f"Issues Found: {issues}")
     print(f"{'='*80}\n")
+
+
+def cmd_sprint_audit(board_id, sprint_label=None):
+    """
+    Sprint-specific audit:
+    - Cards with sprint labels that don't have due dates
+    - Cards with overdue dates in active sprints
+    - Sprint label distribution
+    - Cards in sprint lists without sprint labels
+    - Due date consistency within sprints
+    """
+    client = get_client()
+    board = client.get_board(board_id)
+    lists = board.list_lists()
+
+    print(f"\n{'='*80}")
+    print(f"SPRINT AUDIT REPORT - {board.name}")
+    print(f"Board ID: {board_id}")
+    if sprint_label:
+        print(f"Filtering by label: {sprint_label}")
+    print(f"{'='*80}\n")
+
+    # Initialize trackers
+    sprint_cards = []
+    sprint_cards_without_dates = []
+    overdue_sprint_cards = []
+    cards_in_sprint_list_without_label = []
+    sprint_labels_found = set()
+
+    # Track cards by sprint label
+    cards_by_sprint = defaultdict(list)
+
+    # Keywords for sprint-related lists
+    sprint_list_keywords = ['sprint', 'doing', 'in progress', 'testing', 'ready']
+
+    for lst in lists:
+        if lst.closed:
+            continue
+
+        cards = lst.list_cards()
+        is_sprint_list = any(keyword in lst.name.lower() for keyword in sprint_list_keywords)
+
+        for card in cards:
+            # Find sprint labels
+            card_sprint_labels = []
+            for label in card.labels:
+                label_name = (label.name or "").lower()
+
+                # Check if it's a sprint label
+                is_sprint_label = False
+                if sprint_label:
+                    # User specified a specific sprint label
+                    if sprint_label.lower() in label_name:
+                        is_sprint_label = True
+                else:
+                    # Auto-detect sprint labels (containing "sprint", "s1", "s2", etc)
+                    if 'sprint' in label_name or re.match(r's\d+', label_name):
+                        is_sprint_label = True
+
+                if is_sprint_label:
+                    card_sprint_labels.append(label.name or label.color)
+                    sprint_labels_found.add(label.name or label.color)
+
+            # Card has sprint label
+            if card_sprint_labels:
+                sprint_cards.append((card, lst.name, card_sprint_labels))
+
+                # Group by sprint
+                for sprint in card_sprint_labels:
+                    cards_by_sprint[sprint].append((card, lst.name))
+
+                # Check if has due date
+                if not card.due:
+                    sprint_cards_without_dates.append((card, lst.name, card_sprint_labels))
+                else:
+                    # Check if overdue
+                    try:
+                        if isinstance(card.due, str):
+                            due_date = datetime.fromisoformat(card.due.replace('Z', '+00:00'))
+                        else:
+                            due_date = card.due
+
+                        if due_date < datetime.now():
+                            days_overdue = (datetime.now() - due_date).days
+                            overdue_sprint_cards.append((card, lst.name, card_sprint_labels, due_date, days_overdue))
+                    except:
+                        pass
+
+            # Card in sprint list but no sprint label
+            elif is_sprint_list:
+                # Skip Done lists
+                if 'done' not in lst.name.lower():
+                    cards_in_sprint_list_without_label.append((card, lst.name))
+
+    # Print summary
+    print(f"📊 SPRINT SUMMARY:")
+    print(f"   Sprint labels found: {len(sprint_labels_found)}")
+    if sprint_labels_found:
+        for label in sorted(sprint_labels_found):
+            count = len(cards_by_sprint[label])
+            print(f"      • {label}: {count} card(s)")
+    print(f"   Total cards in sprints: {len(sprint_cards)}")
+    print()
+
+    # Print issues
+    print(f"{'='*80}")
+    print(f"SPRINT AUDIT FINDINGS:")
+    print(f"{'='*80}\n")
+
+    issues = 0
+
+    # Cards with sprint labels but no due dates
+    if sprint_cards_without_dates:
+        issues += 1
+        print(f"⚠️  SPRINT CARDS WITHOUT DUE DATES: {len(sprint_cards_without_dates)} card(s)")
+        print(f"   Sprint cards should have due dates for proper planning\n")
+
+        # Group by sprint
+        by_sprint = defaultdict(list)
+        for card, list_name, sprints in sprint_cards_without_dates:
+            for sprint in sprints:
+                by_sprint[sprint].append((card, list_name))
+
+        for sprint in sorted(by_sprint.keys()):
+            cards = by_sprint[sprint]
+            print(f"   📅 {sprint} ({len(cards)} card(s) missing dates):")
+            for card, list_name in cards[:10]:
+                print(f"      • {card.name[:55]}")
+                print(f"        ID: {card.id} | List: {list_name}")
+                print(f"        Fix: trello set-due {card.id} \"YYYY-MM-DD\"")
+            if len(cards) > 10:
+                print(f"      ... and {len(cards) - 10} more")
+            print()
+    else:
+        print(f"✅ All sprint cards have due dates\n")
+
+    # Overdue sprint cards
+    if overdue_sprint_cards:
+        issues += 1
+        print(f"🔴 OVERDUE SPRINT CARDS: {len(overdue_sprint_cards)} card(s)")
+        print(f"   These cards are past their due date and need attention\n")
+
+        # Sort by most overdue
+        overdue_sprint_cards.sort(key=lambda x: x[4], reverse=True)
+
+        for card, list_name, sprints, due_date, days_overdue in overdue_sprint_cards[:15]:
+            sprint_str = ", ".join(sprints)
+            due_str = due_date.strftime('%Y-%m-%d')
+
+            if days_overdue > 7:
+                urgency = "🔴 CRITICAL"
+            elif days_overdue > 3:
+                urgency = "🟠 HIGH"
+            else:
+                urgency = "🟡 MEDIUM"
+
+            print(f"   {urgency} │ {days_overdue} days overdue (due: {due_str})")
+            print(f"           │ {card.name[:50]}")
+            print(f"           │ Sprint: {sprint_str} | List: {list_name}")
+            print(f"           │ ID: {card.id}")
+            print()
+
+        if len(overdue_sprint_cards) > 15:
+            print(f"   ... and {len(overdue_sprint_cards) - 15} more\n")
+    else:
+        print(f"✅ No overdue sprint cards\n")
+
+    # Cards in sprint lists without sprint labels
+    if cards_in_sprint_list_without_label:
+        issues += 1
+        print(f"⚠️  CARDS IN SPRINT LISTS WITHOUT SPRINT LABELS: {len(cards_in_sprint_list_without_label)} card(s)")
+        print(f"   These cards are in sprint-related lists but lack sprint labels\n")
+
+        # Group by list
+        by_list = defaultdict(list)
+        for card, list_name in cards_in_sprint_list_without_label:
+            by_list[list_name].append(card)
+
+        for list_name in sorted(by_list.keys()):
+            cards = by_list[list_name]
+            print(f"   📋 {list_name} ({len(cards)} card(s)):")
+            for card in cards[:10]:
+                print(f"      • {card.name[:55]}")
+                print(f"        ID: {card.id}")
+                print(f"        Fix: trello add-label {card.id} \"color\" \"Sprint X\"")
+            if len(cards) > 10:
+                print(f"      ... and {len(cards) - 10} more")
+            print()
+    else:
+        print(f"✅ All cards in sprint lists have sprint labels\n")
+
+    # Sprint consistency analysis
+    print(f"{'='*80}")
+    print(f"SPRINT HEALTH ANALYSIS:")
+    print(f"{'='*80}\n")
+
+    for sprint in sorted(cards_by_sprint.keys()):
+        cards_info = cards_by_sprint[sprint]
+        total = len(cards_info)
+
+        # Calculate stats
+        with_dates = 0
+        overdue = 0
+        due_soon = 0
+        on_track = 0
+
+        for card, list_name in cards_info:
+            if card.due:
+                with_dates += 1
+                try:
+                    if isinstance(card.due, str):
+                        due_date = datetime.fromisoformat(card.due.replace('Z', '+00:00'))
+                    else:
+                        due_date = card.due
+
+                    days_until = (due_date - datetime.now()).days
+
+                    if days_until < 0:
+                        overdue += 1
+                    elif days_until <= 3:
+                        due_soon += 1
+                    else:
+                        on_track += 1
+                except:
+                    pass
+
+        without_dates = total - with_dates
+        completion_rate = (with_dates / total * 100) if total > 0 else 0
+
+        # Health indicator
+        if overdue > total * 0.3:
+            health = "🔴 CRITICAL"
+        elif overdue > total * 0.1 or without_dates > total * 0.2:
+            health = "🟠 NEEDS ATTENTION"
+        elif due_soon > total * 0.5:
+            health = "🟡 WATCH"
+        else:
+            health = "🟢 HEALTHY"
+
+        print(f"📌 {sprint}: {health}")
+        print(f"   Total cards:        {total}")
+        print(f"   With due dates:     {with_dates} ({completion_rate:.1f}%)")
+        print(f"   Without due dates:  {without_dates}")
+        if with_dates > 0:
+            print(f"   Overdue:            {overdue}")
+            print(f"   Due soon (≤3 days): {due_soon}")
+            print(f"   On track:           {on_track}")
+        print()
+
+    # Audit score
+    print(f"{'='*80}")
+    audit_score = max(0, 100 - (issues * 25) - (len(overdue_sprint_cards) * 2))
+
+    if audit_score >= 90:
+        status = "🟢 EXCELLENT"
+    elif audit_score >= 70:
+        status = "🟡 GOOD"
+    elif audit_score >= 50:
+        status = "🟠 NEEDS ATTENTION"
+    else:
+        status = "🔴 CRITICAL"
+
+    print(f"Sprint Audit Score: {audit_score}/100 - {status}")
+    print(f"Critical Issues: {issues}")
+    print(f"Overdue Cards: {len(overdue_sprint_cards)}")
+    print(f"{'='*80}\n")
