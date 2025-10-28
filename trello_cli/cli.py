@@ -32,7 +32,9 @@ from .commands import (
     # Board standardization
     cmd_standardize_lists, cmd_scrum_check, cmd_migrate_cards, cmd_list_templates,
     # Board migration
-    cmd_migrate_board, cmd_archive_board
+    cmd_migrate_board, cmd_archive_board,
+    # Audit commands
+    cmd_board_audit, cmd_list_audit, cmd_list_snapshot
 )
 
 HELP_TEXT = """
@@ -82,6 +84,11 @@ BOARD STANDARDIZATION (Agile/Scrum):
   standardize-lists <board_id> <template> [--dry-run]
   scrum-check <board_id>      Validate Agile/Scrum conformity
   migrate-cards <list_id> <target_board_id> ["target_list"]
+
+AUDIT & ANALYSIS:
+  board-audit <board_id> ["pattern"]    Comprehensive board audit
+  list-audit <list_id> ["pattern"]      Detailed list audit
+  list-snapshot <list_id> ["file.json"] Export list to JSON snapshot
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -398,6 +405,28 @@ def main():
                 print("❌ Usage: trello archive-board <board_id>")
                 sys.exit(1)
             cmd_archive_board(sys.argv[2])
+
+        # Audit Commands
+        elif command == 'board-audit':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello board-audit <board_id> [\"pattern\"]")
+                sys.exit(1)
+            pattern = sys.argv[3] if len(sys.argv) > 3 else None
+            cmd_board_audit(sys.argv[2], pattern)
+
+        elif command == 'list-audit':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello list-audit <list_id> [\"pattern\"]")
+                sys.exit(1)
+            pattern = sys.argv[3] if len(sys.argv) > 3 else None
+            cmd_list_audit(sys.argv[2], pattern)
+
+        elif command == 'list-snapshot':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello list-snapshot <list_id> [\"output_file.json\"]")
+                sys.exit(1)
+            output_file = sys.argv[3] if len(sys.argv) > 3 else None
+            cmd_list_snapshot(sys.argv[2], output_file)
 
         elif command in ['-v', '--version', 'version']:
             print(f"Trello CLI v{__version__}")

@@ -171,6 +171,30 @@ def cmd_help_json():
                 "args": [
                     {"name": "card_id", "type": "string", "required": True}
                 ]
+            },
+            "board-audit": {
+                "description": "Comprehensive board audit: naming patterns, missing members/labels, empty lists, deletion candidates",
+                "usage": "trello board-audit <board_id> [\"pattern\"]",
+                "args": [
+                    {"name": "board_id", "type": "string", "required": True},
+                    {"name": "pattern", "type": "string", "required": False, "description": "Regex pattern for card naming validation (e.g., 'PF-[A-Z]+-\\d+')"}
+                ]
+            },
+            "list-audit": {
+                "description": "Detailed audit of a specific list with pattern validation",
+                "usage": "trello list-audit <list_id> [\"pattern\"]",
+                "args": [
+                    {"name": "list_id", "type": "string", "required": True},
+                    {"name": "pattern", "type": "string", "required": False, "description": "Regex pattern for card naming validation"}
+                ]
+            },
+            "list-snapshot": {
+                "description": "Export complete list snapshot to JSON with all card details",
+                "usage": "trello list-snapshot <list_id> [\"output_file.json\"]",
+                "args": [
+                    {"name": "list_id", "type": "string", "required": True},
+                    {"name": "output_file", "type": "string", "required": False, "description": "Output JSON file (prints to stdout if not provided)"}
+                ]
             }
         },
         "usage_notes": [
@@ -218,6 +242,11 @@ CARD ENHANCEMENT COMMANDS:
   add-checkitem <card_id> "checklist" "item"   Add item to checklist
   set-due <card_id> "YYYY-MM-DD"         Set due date
   add-comment <card_id> "comment"        Add comment to card
+
+AUDIT & ANALYSIS COMMANDS:
+  board-audit <board_id> ["pattern"]     Comprehensive board audit
+  list-audit <list_id> ["pattern"]       Detailed list audit
+  list-snapshot <list_id> ["file.json"]  Export list to JSON
 
 CONFIGURATION:
   config                            Configure API credentials
