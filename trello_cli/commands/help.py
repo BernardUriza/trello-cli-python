@@ -243,6 +243,37 @@ def cmd_help_json():
                     {"name": "current_label", "type": "string", "required": True, "description": "Current label name, color, or ID"},
                     {"name": "new_name", "type": "string", "required": True}
                 ]
+            },
+            "plugin-list": {
+                "description": "List all available plugins",
+                "usage": "trello plugin list [--plugin-dir DIR]",
+                "args": [
+                    {"name": "--plugin-dir", "type": "string", "required": False, "description": "Custom plugin directory"}
+                ],
+                "output": "Table with plugin names, descriptions, versions, and authors"
+            },
+            "plugin-info": {
+                "description": "Show detailed information about a plugin",
+                "usage": "trello plugin info <name> [--plugin-dir DIR]",
+                "args": [
+                    {"name": "plugin_name", "type": "string", "required": True},
+                    {"name": "--plugin-dir", "type": "string", "required": False, "description": "Custom plugin directory"}
+                ],
+                "output": "Detailed plugin metadata and available environment variables"
+            },
+            "plugin-run": {
+                "description": "Execute a plugin with arguments",
+                "usage": "trello plugin run <name> [args] [--plugin-dir DIR]",
+                "args": [
+                    {"name": "plugin_name", "type": "string", "required": True},
+                    {"name": "args", "type": "array", "required": False, "description": "Arguments to pass to the plugin"}
+                ],
+                "output": "Plugin-specific output",
+                "examples": [
+                    "trello plugin run board-audit <board_id>",
+                    "trello plugin run board-audit <board_id> --json",
+                    "trello plugin run board-audit <board_id> --pattern \"PF-[A-Z]+-\\d+\""
+                ]
             }
         },
         "usage_notes": [
