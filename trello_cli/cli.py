@@ -46,7 +46,10 @@ from .commands import (
     # Member management
     cmd_assign_card, cmd_unassign_card, cmd_card_log,
     # Export
-    cmd_export_board
+    cmd_export_board,
+    # Validation
+    cmd_validation_status, cmd_validation_enable, cmd_validation_disable,
+    cmd_validation_config, cmd_validation_reload, cmd_validation_reset
 )
 
 HELP_TEXT = """
@@ -131,6 +134,14 @@ PLUGINS (EXTENSIBILITY):
   plugin list [--plugin-dir DIR]             List available plugins
   plugin info <name> [--plugin-dir DIR]      Show plugin details
   plugin run <name> [args] [--plugin-dir DIR] Execute a plugin
+
+VALIDATION RULES (ENFORCE SCRUM PRACTICES):
+  validation-status                Show validation rules status
+  validation-enable                Enable validation system
+  validation-disable               Disable validation system
+  validation-config                Show/edit configuration
+  validation-reload                Reload config from file
+  validation-reset                 Reset to default rules
 
 BASIC BOARD/LIST/CARD COMMANDS:
   boards                      List all boards
@@ -269,9 +280,10 @@ def main():
 
         elif command == 'move-card':
             if len(sys.argv) < 4:
-                print("❌ Usage: trello move-card <card_id> <list_id>")
+                print("❌ Usage: trello move-card <card_id> <list_id> [--done]")
                 sys.exit(1)
-            cmd_move_card(sys.argv[2], sys.argv[3])
+            explicit_done = '--done' in sys.argv
+            cmd_move_card(sys.argv[2], sys.argv[3], explicit_done)
 
         elif command == 'add-label':
             if len(sys.argv) < 4:
@@ -594,6 +606,25 @@ def main():
                 sys.exit(1)
             output_file = sys.argv[4] if len(sys.argv) > 4 else None
             cmd_export_board(sys.argv[2], sys.argv[3], output_file)
+
+        # Validation Commands
+        elif command == 'validation-status':
+            cmd_validation_status()
+
+        elif command == 'validation-enable':
+            cmd_validation_enable()
+
+        elif command == 'validation-disable':
+            cmd_validation_disable()
+
+        elif command == 'validation-config':
+            cmd_validation_config()
+
+        elif command == 'validation-reload':
+            cmd_validation_reload()
+
+        elif command == 'validation-reset':
+            cmd_validation_reset()
 
         # Plugin Commands
         elif command == 'plugin':

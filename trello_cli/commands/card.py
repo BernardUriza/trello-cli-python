@@ -4,6 +4,12 @@ Card-related commands
 
 from ..client import get_client
 from ..utils import format_table, format_card_details, validate_date
+from ..validators import (
+    card_creation_validator,
+    card_movement_validator,
+    ValidationError,
+    get_config
+)
 
 
 def cmd_cards(list_id):
@@ -25,6 +31,20 @@ def cmd_cards(list_id):
 
 def cmd_add_card(list_id, title, description=""):
     """Add a new card to a list"""
+    # Validate if validation system is enabled
+    config = get_config()
+    if config.is_enabled():
+        try:
+            card_creation_validator.validate(
+                title=title,
+                description=description
+            )
+        except ValidationError as e:
+            print(f"\n{e.message}\n")
+            if e.help_command:
+                print(f"💡 Run '{e.help_command}' for more information\n")
+            return
+
     client = get_client()
     lst = client.get_list(list_id)
     card = lst.add_card(name=title, desc=description)
@@ -50,11 +70,26 @@ def cmd_update_card(card_id, description):
     print(f"✅ Updated description for: {card.name}")
 
 
-def cmd_move_card(card_id, list_id):
+def cmd_move_card(card_id, list_id, explicit_done=False):
     """Move card to another list"""
     client = get_client()
     card = client.get_card(card_id)
     target_list = client.get_list(list_id)
+
+    # Validate if validation system is enabled
+    config = get_config()
+    if config.is_enabled():
+        try:
+            card_movement_validator.validate(
+                card=card,
+                target_list=target_list,
+                explicit_done=explicit_done
+            )
+        except ValidationError as e:
+            print(f"\n{e.message}\n")
+            if e.help_command:
+                print(f"💡 Run '{e.help_command}' for more information\n")
+            return
 
     card.change_list(list_id)
     print(f"✅ Moved card '{card.name}' to list '{target_list.name}'")

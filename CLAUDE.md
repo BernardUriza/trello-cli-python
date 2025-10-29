@@ -220,3 +220,15 @@ This will prompt for:
 - Trello API Token
 
 Credentials are stored in `~/.trello_cli_config.json`
+- Build and publish CLI to PyPI, then remove local alias (400-token PhD mode)
+cd ~/Documents/trello-cli && \
+rm -f ~/.zshrc_alias_backup && \
+alias trello="" && \
+python3 -m pip install --upgrade build twine && \
+python3 -m build && \
+python3 -m twine upload dist/* && \
+echo "✅ Published to PyPI. CLI is now globally available via pip install trello-cli" && \
+sed -i.bak '/alias trello=/d' ~/.zshrc && \
+echo "✅ Removed local alias. Restart shell or run 'hash -r' to clear cache." && \
+pip install --force-reinstall trello-cli-fi && \
+trello --help

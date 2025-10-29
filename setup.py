@@ -11,7 +11,7 @@ long_description = readme_file.read_text() if readme_file.exists() else ""
 
 setup(
     name="trello-cli-python",
-    version="2.0.2",
+    version="2.1.0",
     author="Bernard Uriza Orozco",
     author_email="bernard@example.com",
     description="Official Python CLI for Trello - Optimized for agile workflows",
