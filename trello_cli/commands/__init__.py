@@ -15,7 +15,8 @@ from .help import cmd_help, cmd_help_json
 from .discovery import cmd_board_overview, cmd_board_ids, cmd_search_cards
 from .bulk import (
     cmd_bulk_move_cards, cmd_bulk_add_label, cmd_bulk_set_due,
-    cmd_bulk_archive_cards, cmd_bulk_create_cards
+    cmd_bulk_archive_cards, cmd_bulk_create_cards,
+    cmd_bulk_relabel, cmd_label_backup, cmd_label_restore
 )
 from .quick import (
     cmd_quick_start, cmd_quick_test, cmd_quick_done,
@@ -51,6 +52,7 @@ __all__ = [
     # Bulk operations
     'cmd_bulk_move_cards', 'cmd_bulk_add_label', 'cmd_bulk_set_due',
     'cmd_bulk_archive_cards', 'cmd_bulk_create_cards',
+    'cmd_bulk_relabel', 'cmd_label_backup', 'cmd_label_restore',
     # Quick commands
     'cmd_quick_start', 'cmd_quick_test', 'cmd_quick_done',
     'cmd_my_cards', 'cmd_card_age',

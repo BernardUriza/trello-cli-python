@@ -305,3 +305,230 @@ def _read_csv_file(filepath):
     except Exception as e:
         print(f"❌ Error reading CSV file: {str(e)}")
         return []
+
+
+def cmd_bulk_relabel(board_id, from_label, to_label, dry_run=False):
+    """
+    Re-assign all cards from one label to another.
+    Useful for recovering from accidental label deletions.
+
+    Args:
+        board_id: Board ID
+        from_label: Source label (name, color, or ID) - cards currently with this label
+        to_label: Target label (name, color, or ID) - label to apply instead
+        dry_run: If True, only show what would be done without making changes
+    """
+    client = get_client()
+    board = client.get_board(board_id)
+
+    # Find source and target labels
+    board_labels = board.get_labels()
+    source_label = None
+    target_label = None
+
+    for label in board_labels:
+        if (label.id == from_label or label.name == from_label or label.color == from_label):
+            source_label = label
+        if (label.id == to_label or label.name == to_label or label.color == to_label):
+            target_label = label
+
+    if not source_label:
+        print(f"❌ Source label '{from_label}' not found on board")
+        return
+
+    if not target_label:
+        print(f"❌ Target label '{to_label}' not found on board")
+        print(f"\n💡 Tip: Create the target label first using:")
+        print(f"   trello add-label <card_id> <color> \"{to_label}\"")
+        return
+
+    source_name = source_label.name or f"[{source_label.color}]"
+    target_name = target_label.name or f"[{target_label.color}]"
+
+    # Get all cards on board and filter by source label
+    all_cards = board.all_cards()
+    cards_with_label = [card for card in all_cards
+                       if any(l.id == source_label.id for l in card.labels)]
+
+    if not cards_with_label:
+        print(f"✅ No cards found with label '{source_name}'")
+        return
+
+    print(f"\n{'='*80}")
+    if dry_run:
+        print(f"🔍 DRY RUN - BULK RELABEL")
+    else:
+        print(f"🏷️  BULK RELABEL")
+    print(f"{'='*80}")
+    print(f"Source Label: {source_name} ({source_label.color})")
+    print(f"Target Label: {target_name} ({target_label.color})")
+    print(f"Cards Found:  {len(cards_with_label)}")
+    print(f"{'='*80}\n")
+
+    if dry_run:
+        print(f"📋 Cards that would be relabeled:\n")
+        for i, card in enumerate(cards_with_label[:20], 1):
+            print(f"  {i}. {card.name[:65]}")
+        if len(cards_with_label) > 20:
+            print(f"  ... and {len(cards_with_label) - 20} more")
+        print(f"\n💡 Remove --dry-run flag to execute the relabeling")
+        return
+
+    # Confirm action
+    confirm = input(f"\n⚠️  Relabel {len(cards_with_label)} cards? (yes/no): ")
+    if confirm.lower() != 'yes':
+        print("❌ Operation cancelled")
+        return
+
+    success_count = 0
+    for card in cards_with_label:
+        try:
+            # Remove old label and add new label
+            card.remove_label(source_label)
+            card.add_label(target_label)
+            print(f"✅ Relabeled: {card.name[:60]}")
+            success_count += 1
+        except Exception as e:
+            print(f"❌ Failed for '{card.name[:60]}': {str(e)}")
+
+    print(f"\n{'='*80}")
+    print(f"✅ Successfully relabeled {success_count}/{len(cards_with_label)} cards")
+    print(f"{'='*80}\n")
+
+
+def cmd_label_backup(board_id, output_file="label_backup.json"):
+    """
+    Backup all label assignments for a board to JSON file.
+    Useful for disaster recovery.
+
+    Args:
+        board_id: Board ID
+        output_file: Output JSON file path
+    """
+    client = get_client()
+    board = client.get_board(board_id)
+
+    print(f"\n{'='*80}")
+    print(f"📦 LABEL BACKUP")
+    print(f"{'='*80}")
+    print(f"Board: {board.name}")
+    print(f"{'='*80}\n")
+
+    # Get all labels
+    board_labels = board.get_labels()
+    labels_map = {label.id: {'name': label.name, 'color': label.color}
+                  for label in board_labels}
+
+    print(f"📊 Found {len(board_labels)} label(s) on board")
+
+    # Get all cards and their labels
+    all_cards = board.all_cards()
+    backup_data = {
+        'board_id': board_id,
+        'board_name': board.name,
+        'backup_date': json.dumps(None),  # Will be serialized by json.dump
+        'labels': labels_map,
+        'card_labels': {}
+    }
+
+    card_count = 0
+    for card in all_cards:
+        if card.labels:
+            backup_data['card_labels'][card.id] = {
+                'name': card.name,
+                'labels': [{'id': l.id, 'name': l.name, 'color': l.color}
+                          for l in card.labels]
+            }
+            card_count += 1
+
+    print(f"📊 Found {card_count} card(s) with labels")
+
+    # Write to file
+    try:
+        with open(output_file, 'w') as f:
+            json.dump(backup_data, f, indent=2)
+        print(f"\n✅ Backup saved to: {output_file}")
+        print(f"   Labels: {len(board_labels)}")
+        print(f"   Cards with labels: {card_count}")
+        print(f"\n💡 To restore: trello label-restore <board_id> {output_file}")
+    except Exception as e:
+        print(f"\n❌ Failed to save backup: {str(e)}")
+
+
+def cmd_label_restore(board_id, backup_file):
+    """
+    Restore label assignments from backup file.
+
+    Args:
+        board_id: Board ID
+        backup_file: Backup JSON file path
+    """
+    client = get_client()
+    board = client.get_board(board_id)
+
+    # Read backup file
+    try:
+        with open(backup_file, 'r') as f:
+            backup_data = json.load(f)
+    except FileNotFoundError:
+        print(f"❌ Backup file not found: {backup_file}")
+        return
+    except Exception as e:
+        print(f"❌ Error reading backup file: {str(e)}")
+        return
+
+    print(f"\n{'='*80}")
+    print(f"📥 LABEL RESTORE")
+    print(f"{'='*80}")
+    print(f"Backup from: {backup_data.get('board_name', 'Unknown')}")
+    print(f"Target board: {board.name}")
+    print(f"{'='*80}\n")
+
+    # Get current labels
+    current_labels = board.get_labels()
+    label_map = {}
+
+    # Recreate missing labels
+    for label_id, label_info in backup_data.get('labels', {}).items():
+        # Find existing label by name and color
+        existing = None
+        for l in current_labels:
+            if l.name == label_info['name'] and l.color == label_info['color']:
+                existing = l
+                break
+
+        if existing:
+            label_map[label_id] = existing
+            print(f"✅ Found existing label: {label_info['name']} ({label_info['color']})")
+        else:
+            # Create new label
+            new_label = board.add_label(label_info['name'], label_info['color'])
+            label_map[label_id] = new_label
+            print(f"➕ Created label: {label_info['name']} ({label_info['color']})")
+
+    # Restore card labels
+    card_labels_data = backup_data.get('card_labels', {})
+    if not card_labels_data:
+        print(f"\n⚠️  No card label data in backup")
+        return
+
+    print(f"\n📋 Restoring labels to {len(card_labels_data)} card(s)...\n")
+
+    success_count = 0
+    for card_id, card_data in card_labels_data.items():
+        try:
+            card = client.get_card(card_id)
+
+            for label_info in card_data.get('labels', []):
+                if label_info['id'] in label_map:
+                    target_label = label_map[label_info['id']]
+                    card.add_label(target_label)
+
+            print(f"✅ Restored labels for: {card_data['name'][:50]}")
+            success_count += 1
+        except Exception as e:
+            print(f"⚠️  Failed for card {card_id}: {str(e)}")
+
+    print(f"\n{'='*80}")
+    print(f"✅ Successfully restored labels for {success_count}/{len(card_labels_data)} cards")
+    print(f"{'='*80}\n")

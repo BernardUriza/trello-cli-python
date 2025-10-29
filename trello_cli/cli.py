@@ -4,6 +4,12 @@ Trello CLI - Main command-line interface
 """
 
 import sys
+import warnings
+
+# Suppress urllib3 NotOpenSSLWarning - this is a system-level SSL library issue
+# that doesn't affect Trello CLI functionality with HTTPS requests
+warnings.filterwarnings('ignore', message='.*urllib3 v2 only supports OpenSSL.*')
+
 from . import __version__
 from .config import configure_interactive
 from .plugins import cmd_plugin_list, cmd_plugin_info, cmd_plugin_run
@@ -22,6 +28,7 @@ from .commands import (
     # Bulk operations
     cmd_bulk_move_cards, cmd_bulk_add_label, cmd_bulk_set_due,
     cmd_bulk_archive_cards, cmd_bulk_create_cards,
+    cmd_bulk_relabel, cmd_label_backup, cmd_label_restore,
     # Quick commands
     cmd_quick_start, cmd_quick_test, cmd_quick_done,
     cmd_my_cards, cmd_card_age,
@@ -76,6 +83,11 @@ BULK OPERATIONS:
   bulk-set-due <file> <date>
   bulk-archive-cards <list_id> ["filter"]
   bulk-create-cards <list_id> <csv/json_file>
+  bulk-relabel <board_id> <from_label> <to_label> [--dry-run]
+
+LABEL BACKUP & RECOVERY:
+  label-backup <board_id> [output_file]         Backup all label assignments
+  label-restore <board_id> <backup_file>        Restore labels from backup
 
 ADVANCED QUERIES:
   cards-by-label <board_id> <color> ["name"]
@@ -214,9 +226,18 @@ def main():
 
         elif command == 'add-card':
             if len(sys.argv) < 4:
-                print("❌ Usage: trello add-card <list_id> \"title\" [\"description\"]")
+                print("❌ Usage: trello add-card <list_id> \"title\" [--description \"description\"]")
                 sys.exit(1)
-            description = sys.argv[4] if len(sys.argv) > 4 else ""
+
+            # Parse description - support both positional and --description flag
+            description = ""
+            if len(sys.argv) > 4:
+                if sys.argv[4] == '--description' and len(sys.argv) > 5:
+                    description = sys.argv[5]
+                else:
+                    # Legacy support: positional description argument
+                    description = sys.argv[4]
+
             cmd_add_card(sys.argv[2], sys.argv[3], description)
 
         elif command == 'show-card':
@@ -392,6 +413,26 @@ def main():
                 print("❌ Usage: trello bulk-create-cards <list_id> <csv/json_file>")
                 sys.exit(1)
             cmd_bulk_create_cards(sys.argv[2], sys.argv[3])
+
+        elif command == 'bulk-relabel':
+            if len(sys.argv) < 5:
+                print("❌ Usage: trello bulk-relabel <board_id> <from_label> <to_label> [--dry-run]")
+                sys.exit(1)
+            dry_run = '--dry-run' in sys.argv
+            cmd_bulk_relabel(sys.argv[2], sys.argv[3], sys.argv[4], dry_run)
+
+        elif command == 'label-backup':
+            if len(sys.argv) < 3:
+                print("❌ Usage: trello label-backup <board_id> [output_file]")
+                sys.exit(1)
+            output_file = sys.argv[3] if len(sys.argv) > 3 else "label_backup.json"
+            cmd_label_backup(sys.argv[2], output_file)
+
+        elif command == 'label-restore':
+            if len(sys.argv) < 4:
+                print("❌ Usage: trello label-restore <board_id> <backup_file>")
+                sys.exit(1)
+            cmd_label_restore(sys.argv[2], sys.argv[3])
 
         # Advanced Query Commands
         elif command == 'cards-by-label':
