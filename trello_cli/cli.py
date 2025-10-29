@@ -248,9 +248,18 @@ def main():
 
         elif command == 'update-card':
             if len(sys.argv) < 4:
-                print("❌ Usage: trello update-card <card_id> \"description\"")
+                print("❌ Usage: trello update-card <card_id> [--description] \"description\"")
                 sys.exit(1)
-            cmd_update_card(sys.argv[2], sys.argv[3])
+
+            # Parse description - support both positional and --description flag
+            description = ""
+            if sys.argv[3] == '--description' and len(sys.argv) > 4:
+                description = sys.argv[4]
+            else:
+                # Legacy support: positional description argument
+                description = sys.argv[3]
+
+            cmd_update_card(sys.argv[2], description)
 
         elif command == 'rename-card':
             if len(sys.argv) < 4:
